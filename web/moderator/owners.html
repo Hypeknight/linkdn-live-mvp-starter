@@ -6,99 +6,222 @@
   <title>Owners & Staff - Linkd'N</title>
   <link rel="stylesheet" href="/common/app.css" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="/common/config.js"></script>
-  <script src="/common/supabase.js"></script>
-  <script src="/common/auth-live.js"></script>
+  <script src="/common/config.js?v=live1"></script>
+  <script src="/common/supabase.js?v=live1"></script>
+  <script src="/common/auth-live.js?v=live1"></script>
+  <script src="/common/nav.js?v=live1"></script>
 </head>
 <body>
-  <div class="dashboard-shell">
-    <aside class="dashboard-sidebar">
-      <div class="sidebar-brand">Linkd'N Moderator</div>
-      <div class="sidebar-links">
-        <a class="sidebar-link" href="/moderator/dashboard.html">Dashboard</a>
-        <a class="sidebar-link" href="/moderator/venues.html">Venues</a>
-        <a class="sidebar-link" href="/moderator/owners.html">Owners & Staff</a>
-        <a class="sidebar-link" href="/moderator/metrics.html">Metrics</a>
-      </div>
-    </aside>
-    <main class="dashboard-main">
+  <div class="page-wrap">
+    <div id="menu"></div>
 
-      <div class="dashboard-main-header"><h1>Owners & Staff</h1></div>
-      <div class="card">
-        <h3>Create Owner or Staff Account</h3>
-        <form id="ownerForm">
-          <div class="form-row">
-            <div><label>Display Name</label><input name="display_name" required /></div>
-            <div><label>Email</label><input type="email" name="email" required /></div>
-          </div>
-          <div class="form-row" style="margin-top:14px;">
-            <div><label>Password</label><input type="password" name="password" required /></div>
-            <div><label>Role</label><select name="role"><option value="venue_owner">venue_owner</option><option value="venue_staff">venue_staff</option></select></div>
-          </div>
-          <div class="form-row" style="margin-top:14px;">
-            <div><label>Venue</label><select name="venue_id" id="venueSelect"></select></div>
-            <div><label>Access Level</label><select name="access_level"><option value="owner">owner</option><option value="manager">manager</option><option value="operator">operator</option></select></div>
-          </div>
-          <div class="form-actions"><button type="submit">Create User</button></div>
-        </form>
-        <p id="ownerStatus" class="notice" style="display:none;margin-top:14px;"></p>
+    <div class="form-card">
+      <h2>Create Owner / Staff Membership</h2>
+      <form id="membershipForm">
+        <label>User Email</label>
+        <input id="email" type="email" required />
+
+        <label style="margin-top:14px;">Display Name</label>
+        <input id="display_name" required />
+
+        <label style="margin-top:14px;">Role</label>
+        <select id="role">
+          <option value="venue_owner">Venue Owner</option>
+          <option value="venue_staff">Venue Staff</option>
+        </select>
+
+        <label style="margin-top:14px;">Venue</label>
+        <select id="venue_id"></select>
+
+        <label style="margin-top:14px;">Access Level</label>
+        <select id="access_level">
+          <option value="owner">Owner</option>
+          <option value="manager">Manager</option>
+          <option value="operator">Operator</option>
+        </select>
+
+        <div class="form-actions">
+          <button type="submit">Create Membership</button>
+        </div>
+      </form>
+      <p id="status" class="notice" style="display:none;margin-top:14px;"></p>
+      <div class="notice" style="margin-top:16px;">
+        This page assumes the Auth user already exists in Supabase Authentication.
       </div>
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Venue</th><th>Access</th></tr></thead>
-          <tbody id="ownerTableBody"></tbody>
-        </table>
-      </div>
-    </main>
+    </div>
+
+    <div class="table-wrap" style="margin-top:24px;">
+      <table>
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Email</th>
+            <th>Role</th>
+            <th>Venue</th>
+            <th>Access</th>
+            <th>Active</th>
+          </tr>
+        </thead>
+        <tbody id="ownersTable"></tbody>
+      </table>
+    </div>
   </div>
+
   <script>
-    const form = document.getElementById("ownerForm");
-    const statusEl = document.getElementById("ownerStatus");
-    const venueSelect = document.getElementById("venueSelect");
-    const tableBody = document.getElementById("ownerTableBody");
+    document.getElementById("menu").innerHTML = LinkdNNav.moderator();
 
-    function setStatus(msg, show=true) {
-      statusEl.style.display = show ? "block" : "none";
-      statusEl.textContent = msg || "";
+    function showStatus(message) {
+      const el = document.getElementById("status");
+      el.style.display = "block";
+      el.textContent = message;
     }
 
-    async function loadVenues() {
-      const res = await LinkdNSupabase.apiFetch("/moderator/venues");
-      const venues = res.ok ? await res.json() : [];
-      venueSelect.innerHTML = venues.map(v => `<option value="${v.id}">${v.name}</option>`).join("");
+    async function ensureModerator() {
+      const profile = await LinkdNAuthLive.getProfile();
+      if (!profile) {
+        location.href = "/auth/login.html";
+        return null;
+      }
+      if (profile.role !== "moderator") {
+        alert("Moderator access only.");
+        location.href = "/profile/index.html";
+        return null;
+      }
+      return profile;
     }
 
-    async function loadOwners() {
-      const res = await LinkdNSupabase.apiFetch("/moderator/owners");
-      const rows = res.ok ? await res.json() : [];
-      tableBody.innerHTML = rows.map(r => `
-        <tr>
-          <td>${r.display_name || "-"}</td>
-          <td>${r.email || "-"}</td>
-          <td>${r.role}</td>
-          <td>${r.venue_name || "-"}</td>
-          <td>${r.access_level || "-"}</td>
-        </tr>
-      `).join("");
+    async function loadVenuesForSelect() {
+      const supabase = window.LinkdNSupabase.getClient();
+      const { data, error } = await supabase
+        .from("venues")
+        .select("id, name")
+        .eq("active", true)
+        .order("name");
+
+      const select = document.getElementById("venue_id");
+      select.innerHTML = "";
+
+      if (error || !data) return;
+
+      data.forEach(v => {
+        const opt = document.createElement("option");
+        opt.value = v.id;
+        opt.textContent = v.name;
+        select.appendChild(opt);
+      });
     }
 
-    form.addEventListener("submit", async (e) => {
+    async function loadMemberships() {
+      const profile = await ensureModerator();
+      if (!profile) return;
+
+      const supabase = window.LinkdNSupabase.getClient();
+
+      const { data, error } = await supabase
+        .from("venue_members")
+        .select(`
+          id,
+          access_level,
+          active,
+          profiles:profile_id (
+            id,
+            display_name,
+            email,
+            role
+          ),
+          venues:venue_id (
+            id,
+            name
+          )
+        `)
+        .order("id", { ascending: false });
+
+      if (error) {
+        showStatus(error.message || "Could not load memberships.");
+        return;
+      }
+
+      const tbody = document.getElementById("ownersTable");
+      tbody.innerHTML = "";
+
+      if (!data || !data.length) {
+        tbody.innerHTML = `<tr><td colspan="6">No memberships found.</td></tr>`;
+        return;
+      }
+
+      data.forEach((row) => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${row.profiles?.display_name || "-"}</td>
+          <td>${row.profiles?.email || "-"}</td>
+          <td>${row.profiles?.role || "-"}</td>
+          <td>${row.venues?.name || "-"}</td>
+          <td>${row.access_level || "-"}</td>
+          <td>${row.active ? "Yes" : "No"}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    document.getElementById("membershipForm").addEventListener("submit", async (e) => {
       e.preventDefault();
-      const data = Object.fromEntries(new FormData(form).entries());
-      const res = await LinkdNSupabase.apiFetch("/moderator/owners", { method: "POST", body: JSON.stringify(data) });
-      if (!res.ok) return setStatus(await res.text() || "Failed to create user.");
-      form.reset();
-      setStatus("User created.");
-      loadOwners();
+
+      const profile = await ensureModerator();
+      if (!profile) return;
+
+      const supabase = window.LinkdNSupabase.getClient();
+
+      const email = document.getElementById("email").value.trim().toLowerCase();
+      const displayName = document.getElementById("display_name").value.trim();
+      const role = document.getElementById("role").value;
+      const venueId = document.getElementById("venue_id").value;
+      const accessLevel = document.getElementById("access_level").value;
+
+      const { data: existingProfile, error: profileLookupError } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("email", email)
+        .single();
+
+      if (profileLookupError || !existingProfile) {
+        showStatus("That user must already exist in Supabase Authentication and profiles before assigning venue access.");
+        return;
+      }
+
+      const { error: updateProfileError } = await supabase
+        .from("profiles")
+        .update({
+          display_name: displayName,
+          role
+        })
+        .eq("id", existingProfile.id);
+
+      if (updateProfileError) {
+        showStatus(updateProfileError.message || "Could not update profile.");
+        return;
+      }
+
+      const { error: membershipError } = await supabase
+        .from("venue_members")
+        .upsert({
+          venue_id: venueId,
+          profile_id: existingProfile.id,
+          access_level: accessLevel,
+          active: true
+        }, { onConflict: "venue_id,profile_id" });
+
+      if (membershipError) {
+        showStatus(membershipError.message || "Could not create membership.");
+        return;
+      }
+
+      showStatus("Membership saved.");
+      document.getElementById("membershipForm").reset();
+      loadMemberships();
     });
 
-    async function boot() {
-      const profile = await LinkdNAuthLive.requireRole(["moderator"]);
-      if (!profile) return;
-      await loadVenues();
-      await loadOwners();
-    }
-    boot();
+    loadVenuesForSelect();
+    loadMemberships();
   </script>
 </body>
 </html>

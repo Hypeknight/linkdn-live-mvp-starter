@@ -6,43 +6,89 @@
   <title>Metrics - Linkd'N</title>
   <link rel="stylesheet" href="/common/app.css" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="/common/config.js"></script>
-  <script src="/common/supabase.js"></script>
-  <script src="/common/auth-live.js"></script>
+  <script src="/common/config.js?v=live1"></script>
+  <script src="/common/supabase.js?v=live1"></script>
+  <script src="/common/auth-live.js?v=live1"></script>
+  <script src="/common/nav.js?v=live1"></script>
 </head>
 <body>
-  <div class="dashboard-shell">
-    <aside class="dashboard-sidebar">
-      <div class="sidebar-brand">Linkd'N Moderator</div>
-      <div class="sidebar-links">
-        <a class="sidebar-link" href="/moderator/dashboard.html">Dashboard</a>
-        <a class="sidebar-link" href="/moderator/venues.html">Venues</a>
-        <a class="sidebar-link" href="/moderator/owners.html">Owners & Staff</a>
-        <a class="sidebar-link" href="/moderator/metrics.html">Metrics</a>
-      </div>
-    </aside>
-    <main class="dashboard-main">
+  <div class="page-wrap">
+    <div id="menu"></div>
 
-      <div class="dashboard-main-header"><h1>Metrics</h1></div>
-      <div class="metric-grid" id="metricGrid"></div>
-    </main>
+    <div class="metric-grid" style="margin-top:20px;">
+      <div class="metric-card">
+        <h3>Total Profiles</h3>
+        <div class="summary-value" id="profilesCount">0</div>
+      </div>
+      <div class="metric-card">
+        <h3>Total Venues</h3>
+        <div class="summary-value" id="venuesCount">0</div>
+      </div>
+      <div class="metric-card">
+        <h3>Total Rooms</h3>
+        <div class="summary-value" id="roomsCount">0</div>
+      </div>
+      <div class="metric-card">
+        <h3>Total Schedules</h3>
+        <div class="summary-value" id="schedulesCount">0</div>
+      </div>
+      <div class="metric-card">
+        <h3>Total Patron Polls</h3>
+        <div class="summary-value" id="pollsCount">0</div>
+      </div>
+      <div class="metric-card">
+        <h3>Total Votes</h3>
+        <div class="summary-value" id="votesCount">0</div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:24px;">
+      <h3>Platform Direction</h3>
+      <p>
+        Next metrics to track: live venue uptime, device readiness, issue frequency,
+        room engagement, popular cities, game usage, and average poll turnout.
+      </p>
+    </div>
   </div>
+
   <script>
-    async function boot() {
-      const profile = await LinkdNAuthLive.requireRole(["moderator"]);
-      if (!profile) return;
-      const [venuesRes, ownersRes] = await Promise.all([
-        LinkdNSupabase.apiFetch("/moderator/venues"),
-        LinkdNSupabase.apiFetch("/moderator/owners")
+    document.getElementById("menu").innerHTML = LinkdNNav.moderator();
+
+    async function loadMetrics() {
+      const profile = await LinkdNAuthLive.getProfile();
+      if (!profile) return location.href = "/auth/login.html";
+      if (profile.role !== "moderator") {
+        alert("Moderator access only.");
+        return location.href = "/profile/index.html";
+      }
+
+      const supabase = window.LinkdNSupabase.getClient();
+
+      const [
+        { count: profilesCount },
+        { count: venuesCount },
+        { count: roomsCount },
+        { count: schedulesCount },
+        { count: pollsCount },
+        { count: votesCount }
+      ] = await Promise.all([
+        supabase.from("profiles").select("*", { count: "exact", head: true }),
+        supabase.from("venues").select("*", { count: "exact", head: true }),
+        supabase.from("rooms").select("*", { count: "exact", head: true }),
+        supabase.from("schedules").select("*", { count: "exact", head: true }),
+        supabase.from("patron_polls").select("*", { count: "exact", head: true }),
+        supabase.from("patron_votes").select("*", { count: "exact", head: true })
       ]);
-      const venues = venuesRes.ok ? await venuesRes.json() : [];
-      const owners = ownersRes.ok ? await ownersRes.json() : [];
-      document.getElementById("metricGrid").innerHTML = `
-        <div class="metric-card"><h3>Total Venues</h3><div class="summary-value">${venues.length}</div></div>
-        <div class="metric-card"><h3>Owners / Staff</h3><div class="summary-value">${owners.length}</div></div>
-        <div class="metric-card"><h3>Active Venues</h3><div class="summary-value">${venues.filter(v => v.active).length}</div></div>`;
+
+      document.getElementById("profilesCount").textContent = profilesCount || 0;
+      document.getElementById("venuesCount").textContent = venuesCount || 0;
+      document.getElementById("roomsCount").textContent = roomsCount || 0;
+      document.getElementById("schedulesCount").textContent = schedulesCount || 0;
+      document.getElementById("pollsCount").textContent = pollsCount || 0;
+      document.getElementById("votesCount").textContent = votesCount || 0;
     }
-    boot();
+
+    loadMetrics();
   </script>
 </body>
 </html>

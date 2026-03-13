@@ -6,129 +6,205 @@
   <title>Manage Venues - Linkd'N</title>
   <link rel="stylesheet" href="/common/app.css" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="/common/config.js"></script>
-  <script src="/common/supabase.js"></script>
-  <script src="/common/auth-live.js"></script>
+  <script src="/common/config.js?v=live1"></script>
+  <script src="/common/supabase.js?v=live1"></script>
+  <script src="/common/auth-live.js?v=live1"></script>
+  <script src="/common/nav.js?v=live1"></script>
 </head>
 <body>
-  <div class="dashboard-shell">
-    <aside class="dashboard-sidebar">
-      <div class="sidebar-brand">Linkd'N Moderator</div>
-      <div class="sidebar-links">
-        <a class="sidebar-link" href="/moderator/dashboard.html">Dashboard</a>
-        <a class="sidebar-link" href="/moderator/venues.html">Venues</a>
-        <a class="sidebar-link" href="/moderator/owners.html">Owners & Staff</a>
-        <a class="sidebar-link" href="/moderator/metrics.html">Metrics</a>
-      </div>
-    </aside>
-    <main class="dashboard-main">
+  <div class="page-wrap">
+    <div id="menu"></div>
 
-      <div class="dashboard-main-header"><h1>Manage Venues</h1></div>
-      <div class="card">
-        <h3>Add or Edit Venue</h3>
-        <form id="venueForm">
-          <input type="hidden" name="id" />
-          <div class="form-row">
-            <div><label>Venue Slug</label><input name="slug" required /></div>
-            <div><label>Venue Name</label><input name="name" required /></div>
-          </div>
-          <div class="form-row" style="margin-top:14px;">
-            <div><label>City</label><input name="city" /></div>
-            <div><label>Status</label><select name="active"><option value="true">active</option><option value="false">inactive</option></select></div>
-          </div>
-          <div class="form-actions">
-            <button type="submit">Save Venue</button>
-            <button type="button" id="resetFormBtn">Clear</button>
-          </div>
-        </form>
-        <p id="venueStatus" class="notice" style="display:none;margin-top:14px;"></p>
-      </div>
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>Venue</th><th>Slug</th><th>City</th><th>Status</th><th>Owner</th><th>Actions</th></tr></thead>
-          <tbody id="venueTableBody"></tbody>
-        </table>
-      </div>
-    </main>
+    <div class="form-card">
+      <h2>Add / Edit Venue</h2>
+      <form id="venueForm">
+        <input type="hidden" id="venue_id" />
+        <label>Venue Name</label>
+        <input id="name" required />
+
+        <label style="margin-top:14px;">Slug</label>
+        <input id="slug" required />
+
+        <label style="margin-top:14px;">City</label>
+        <input id="city" />
+
+        <label style="margin-top:14px;">Status</label>
+        <select id="active">
+          <option value="true">Active</option>
+          <option value="false">Inactive</option>
+        </select>
+
+        <div class="form-actions">
+          <button type="submit">Save Venue</button>
+          <button type="button" id="resetBtn">Clear Form</button>
+        </div>
+      </form>
+      <p id="status" class="notice" style="display:none;margin-top:14px;"></p>
+    </div>
+
+    <div class="table-wrap" style="margin-top:24px;">
+      <table>
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Slug</th>
+            <th>City</th>
+            <th>Active</th>
+            <th>Owner</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="venuesTable"></tbody>
+      </table>
+    </div>
   </div>
-  <script>
-    const form = document.getElementById("venueForm");
-    const statusEl = document.getElementById("venueStatus");
-    const bodyEl = document.getElementById("venueTableBody");
-    let venueRows = [];
 
-    function setStatus(msg, show=true) {
-      statusEl.style.display = show ? "block" : "none";
-      statusEl.textContent = msg || "";
+  <script>
+    document.getElementById("menu").innerHTML = LinkdNNav.moderator();
+
+    function showStatus(message) {
+      const el = document.getElementById("status");
+      el.style.display = "block";
+      el.textContent = message;
     }
 
-    function renderRows() {
-      bodyEl.innerHTML = venueRows.map(v => `
-        <tr>
-          <td>${v.name}</td>
-          <td>${v.slug}</td>
-          <td>${v.city || "-"}</td>
-          <td>${v.active ? "active" : "inactive"}</td>
-          <td>${v.owner_display_name || "-"}</td>
-          <td>
-            <button type="button" data-id="${v.id}" class="edit-btn">Edit</button>
-            <button type="button" data-id="${v.id}" class="delete-btn">Delete</button>
-          </td>
-        </tr>
-      `).join("");
-      document.querySelectorAll(".edit-btn").forEach(btn => btn.addEventListener("click", () => {
-        const v = venueRows.find(x => x.id === btn.dataset.id);
-        form.id.value = v.id;
-        form.slug.value = v.slug || "";
-        form.name.value = v.name || "";
-        form.city.value = v.city || "";
-        form.active.value = String(v.active);
-        window.scrollTo({ top: 0, behavior: "smooth" });
-      }));
-      document.querySelectorAll(".delete-btn").forEach(btn => btn.addEventListener("click", async () => {
-        if (!confirm("Delete this venue?")) return;
-        const res = await LinkdNSupabase.apiFetch(`/moderator/venues/${btn.dataset.id}`, { method: "DELETE" });
-        if (!res.ok) return setStatus("Failed to delete venue.");
-        setStatus("Venue deleted.");
-        loadVenues();
-      }));
+    function clearForm() {
+      document.getElementById("venue_id").value = "";
+      document.getElementById("name").value = "";
+      document.getElementById("slug").value = "";
+      document.getElementById("city").value = "";
+      document.getElementById("active").value = "true";
+    }
+
+    async function ensureModerator() {
+      const profile = await LinkdNAuthLive.getProfile();
+      if (!profile) {
+        location.href = "/auth/login.html";
+        return null;
+      }
+      if (profile.role !== "moderator") {
+        alert("Moderator access only.");
+        location.href = "/profile/index.html";
+        return null;
+      }
+      return profile;
     }
 
     async function loadVenues() {
-      const res = await LinkdNSupabase.apiFetch("/moderator/venues");
-      venueRows = res.ok ? await res.json() : [];
-      renderRows();
-    }
-
-    document.getElementById("resetFormBtn").addEventListener("click", () => {
-      form.reset();
-      form.id.value = "";
-      form.active.value = "true";
-      setStatus("", false);
-    });
-
-    form.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const data = Object.fromEntries(new FormData(form).entries());
-      data.active = data.active === "true";
-      const isEdit = !!data.id;
-      const path = isEdit ? `/moderator/venues/${data.id}` : "/moderator/venues";
-      const method = isEdit ? "PUT" : "POST";
-      const res = await LinkdNSupabase.apiFetch(path, { method, body: JSON.stringify(data) });
-      if (!res.ok) return setStatus(await res.text() || "Failed to save venue.");
-      form.reset();
-      form.id.value = "";
-      form.active.value = "true";
-      setStatus("Venue saved.");
-      loadVenues();
-    });
-
-    async function boot() {
-      const profile = await LinkdNAuthLive.requireRole(["moderator"]);
+      const profile = await ensureModerator();
       if (!profile) return;
-      loadVenues();
+
+      const supabase = window.LinkdNSupabase.getClient();
+
+      const { data, error } = await supabase
+        .from("venues")
+        .select(`
+          id,
+          name,
+          slug,
+          city,
+          active,
+          owner_profile_id,
+          profiles:owner_profile_id (
+            display_name,
+            email
+          )
+        `)
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        showStatus(error.message || "Could not load venues.");
+        return;
+      }
+
+      const tbody = document.getElementById("venuesTable");
+      tbody.innerHTML = "";
+
+      if (!data || !data.length) {
+        tbody.innerHTML = `<tr><td colspan="6">No venues found.</td></tr>`;
+        return;
+      }
+
+      data.forEach((venue) => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${venue.name || "-"}</td>
+          <td>${venue.slug || "-"}</td>
+          <td>${venue.city || "-"}</td>
+          <td>${venue.active ? "Yes" : "No"}</td>
+          <td>${venue.profiles?.display_name || venue.profiles?.email || "-"}</td>
+          <td>
+            <button type="button" onclick='editVenue(${JSON.stringify(venue).replace(/'/g, "&apos;")})'>Edit</button>
+            <button type="button" onclick="toggleVenue('${venue.id}', ${venue.active})">
+              ${venue.active ? "Deactivate" : "Activate"}
+            </button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
     }
-    boot();
+
+    window.editVenue = function(venue) {
+      document.getElementById("venue_id").value = venue.id || "";
+      document.getElementById("name").value = venue.name || "";
+      document.getElementById("slug").value = venue.slug || "";
+      document.getElementById("city").value = venue.city || "";
+      document.getElementById("active").value = String(venue.active);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    };
+
+    window.toggleVenue = async function(id, active) {
+      const supabase = window.LinkdNSupabase.getClient();
+      const { error } = await supabase
+        .from("venues")
+        .update({ active: !active })
+        .eq("id", id);
+
+      if (error) {
+        showStatus(error.message || "Could not update venue.");
+        return;
+      }
+
+      showStatus("Venue updated.");
+      loadVenues();
+    };
+
+    document.getElementById("venueForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+
+      const profile = await ensureModerator();
+      if (!profile) return;
+
+      const supabase = window.LinkdNSupabase.getClient();
+
+      const venueId = document.getElementById("venue_id").value.trim();
+      const payload = {
+        name: document.getElementById("name").value.trim(),
+        slug: document.getElementById("slug").value.trim(),
+        city: document.getElementById("city").value.trim(),
+        active: document.getElementById("active").value === "true"
+      };
+
+      let result;
+      if (venueId) {
+        result = await supabase.from("venues").update(payload).eq("id", venueId);
+      } else {
+        result = await supabase.from("venues").insert(payload);
+      }
+
+      if (result.error) {
+        showStatus(result.error.message || "Could not save venue.");
+        return;
+      }
+
+      showStatus("Venue saved.");
+      clearForm();
+      loadVenues();
+    });
+
+    document.getElementById("resetBtn").addEventListener("click", clearForm);
+
+    loadVenues();
   </script>
 </body>
 </html>

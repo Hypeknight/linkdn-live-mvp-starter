@@ -5,89 +5,85 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Device Setup - Linkd'N</title>
   <link rel="stylesheet" href="/common/app.css" />
-  <script src="/common/ui.js"></script>
-  <script src="/common/auth.js"></script>
-  <script src="/common/nav.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/common/config.js?v=live2"></script>
+  <script src="/common/supabase.js?v=live2"></script>
+  <script src="/common/auth-live.js?v=live2"></script>
+  <script src="/common/nav.js?v=live2"></script>
 </head>
 <body>
-  <div id="app"></div>
+  <div class="page-wrap">
+    <div id="menu"></div>
+
+    <div class="form-card">
+      <h2>Device Setup</h2>
+      <p class="notice">
+        Choose the camera and audio input your venue will use for Linkd'N.
+        Run this before doors open.
+      </p>
+
+      <div id="pageStatus" class="notice" style="margin-top:14px;">Loading device tools...</div>
+
+      <div class="form-row" style="margin-top:16px;">
+        <div>
+          <label>Camera</label>
+          <select id="cameraSelect">
+            <option value="">Loading cameras...</option>
+          </select>
+        </div>
+        <div>
+          <label>Audio Input / Interface</label>
+          <select id="audioSelect">
+            <option value="">Loading audio inputs...</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-actions" style="margin-top:18px;">
+        <button type="button" id="requestAccessBtn">Allow Camera & Mic Access</button>
+        <button type="button" id="refreshDevicesBtn">Refresh Devices</button>
+        <button type="button" id="saveDevicesBtn">Save Selection</button>
+      </div>
+    </div>
+
+    <div class="feature-grid" style="margin-top:24px;">
+      <div class="feature-card">
+        <h3>Selected Camera</h3>
+        <div id="selectedCameraText">None selected</div>
+      </div>
+
+      <div class="feature-card">
+        <h3>Selected Audio</h3>
+        <div id="selectedAudioText">None selected</div>
+      </div>
+
+      <div class="feature-card">
+        <h3>Saved Device Profile</h3>
+        <div id="savedConfigText">No saved device profile yet.</div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:24px;">
+      <h3>Preview & Notes</h3>
+      <p>
+        If devices do not appear, click <strong>Allow Camera & Mic Access</strong> first.
+        Some browsers hide real device names until permission has been granted.
+      </p>
+      <video id="previewVideo" autoplay playsinline muted style="width:100%;max-width:480px;border-radius:12px;border:1px solid #355581;background:#000;"></video>
+    </div>
+  </div>
 
   <script>
-    document.getElementById("menu").innerHTML = LinkdNNav.moderator();
+    const statusEl = document.getElementById("pageStatus");
+    const cameraSelect = document.getElementById("cameraSelect");
+    const audioSelect = document.getElementById("audioSelect");
+    const previewVideo = document.getElementById("previewVideo");
 
-    LinkdNAuth.requireRole(["venue_owner", "venue_staff"]);
-
-    document.getElementById("app").innerHTML = LinkdNUI.dashboardShell("Device Setup", [
-      { href: "/venue/index.html", label: "Venue Home" },
-      { href: "/venue/profile.html", label: "Venue Profile" },
-      { href: "/venue/ready-check.html", label: "Ready Check" },
-      { href: "/venue/local-controls.html", label: "Local Controls" },
-      { href: "/venue/device-setup.html", label: "Device Setup" },
-      { href: "/venue/screen-settings.html", label: "Screen Settings" },
-      { href: "/venue/support.html", label: "Support" }
-    ]);
-
-    document.getElementById("page-content").innerHTML = `
-      <div class="card">
-        <h3>Device Configuration</h3>
-        <p class="notice">Use this page before doors open to choose the correct camera, mic, and audio interface.</p>
-
-        <div class="form-row" style="margin-top:14px;">
-          <div>
-            <label>Camera</label>
-            <select id="cameraSelect"></select>
-          </div>
-          <div>
-            <label>Microphone / Interface</label>
-            <select id="audioSelect"></select>
-          </div>
-        </div>
-
-        <div class="form-actions">
-          <button type="button" id="refreshDevicesBtn">Refresh Devices</button>
-          <button type="button" id="saveDevicesBtn">Save Selection</button>
-        </div>
-      </div>
-
-      <div class="feature-grid" style="margin-top:24px;">
-        <div class="device-box">
-          <h3>Selected Camera</h3>
-          <div id="selectedCameraText">None selected</div>
-        </div>
-        <div class="device-box">
-          <h3>Selected Audio</h3>
-          <div id="selectedAudioText">None selected</div>
-        </div>
-        <div class="device-box">
-          <h3>Next Step</h3>
-          <div>After selecting devices, test them in Local Controls and Venue Screen.</div>
-        </div>
-      </div>
-    `;
-
-    async function loadDevices() {
-      const devices = await navigator.mediaDevices.enumerateDevices();
-      const cameraSelect = document.getElementById("cameraSelect");
-      const audioSelect = document.getElementById("audioSelect");
-
-      const cameras = devices.filter(d => d.kind === "videoinput");
-      const audios = devices.filter(d => d.kind === "audioinput");
-
-      cameraSelect.innerHTML = cameras.map((d, i) => `
-        <option value="${d.deviceId}">${d.label || `Camera ${i + 1}`}</option>
-      `).join("");
-
-      audioSelect.innerHTML = audios.map((d, i) => `
-        <option value="${d.deviceId}">${d.label || `Audio Input ${i + 1}`}</option>
-      `).join("");
-
-      updateSelectedText();
+    function setStatus(message) {
+      statusEl.textContent = message;
     }
 
     function updateSelectedText() {
-      const cameraSelect = document.getElementById("cameraSelect");
-      const audioSelect = document.getElementById("audioSelect");
-
       document.getElementById("selectedCameraText").textContent =
         cameraSelect.options[cameraSelect.selectedIndex]?.text || "None selected";
 
@@ -95,33 +91,128 @@
         audioSelect.options[audioSelect.selectedIndex]?.text || "None selected";
     }
 
-    document.addEventListener("change", (e) => {
-      if (e.target.id === "cameraSelect" || e.target.id === "audioSelect") {
-        updateSelectedText();
+    function loadSavedConfig() {
+      const raw = localStorage.getItem("linkdn_device_setup");
+      if (!raw) {
+        document.getElementById("savedConfigText").textContent = "No saved device profile yet.";
+        return null;
       }
-    });
 
-    document.getElementById("refreshDevicesBtn").addEventListener("click", async () => {
       try {
-        await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-      } catch (err) {
-        console.error(err);
+        const cfg = JSON.parse(raw);
+        document.getElementById("savedConfigText").textContent =
+          `${cfg.cameraName || "Unknown camera"} / ${cfg.audioName || "Unknown audio"}`;
+        return cfg;
+      } catch {
+        document.getElementById("savedConfigText").textContent = "Saved config could not be read.";
+        return null;
       }
-      loadDevices();
-    });
+    }
 
-    document.getElementById("saveDevicesBtn").addEventListener("click", () => {
+    async function ensureVenueAccess() {
+      try {
+        const profile = await LinkdNAuthLive.getProfile();
+        if (!profile) {
+          location.href = "/auth/login.html";
+          return false;
+        }
+        if (!["venue_owner", "venue_staff"].includes(profile.role)) {
+          alert("Venue access only.");
+          location.href = "/profile/index.html";
+          return false;
+        }
+        return true;
+      } catch (err) {
+        setStatus(err.message || "Could not verify venue access.");
+        return false;
+      }
+    }
+
+    async function requestMediaAccess() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        previewVideo.srcObject = stream;
+        setStatus("Camera and microphone access granted.");
+        await loadDevices();
+      } catch (err) {
+        setStatus(err.message || "Camera/mic permission was denied.");
+      }
+    }
+
+    async function loadDevices() {
+      try {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) {
+          setStatus("This browser does not support media device detection.");
+          return;
+        }
+
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const cameras = devices.filter(d => d.kind === "videoinput");
+        const audios = devices.filter(d => d.kind === "audioinput");
+
+        cameraSelect.innerHTML = cameras.length
+          ? cameras.map((d, i) =>
+              `<option value="${d.deviceId}">${d.label || `Camera ${i + 1}`}</option>`
+            ).join("")
+          : `<option value="">No cameras found</option>`;
+
+        audioSelect.innerHTML = audios.length
+          ? audios.map((d, i) =>
+              `<option value="${d.deviceId}">${d.label || `Audio Input ${i + 1}`}</option>`
+            ).join("")
+          : `<option value="">No audio inputs found</option>`;
+
+        const saved = loadSavedConfig();
+
+        if (saved?.cameraId) {
+          cameraSelect.value = saved.cameraId;
+        }
+        if (saved?.audioId) {
+          audioSelect.value = saved.audioId;
+        }
+
+        updateSelectedText();
+        setStatus("Devices loaded.");
+      } catch (err) {
+        setStatus(err.message || "Could not load devices.");
+      }
+    }
+
+    function saveDevices() {
       const config = {
-        cameraId: document.getElementById("cameraSelect").value,
-        audioId: document.getElementById("audioSelect").value,
-        cameraName: document.getElementById("selectedCameraText").textContent,
-        audioName: document.getElementById("selectedAudioText").textContent
+        cameraId: cameraSelect.value,
+        audioId: audioSelect.value,
+        cameraName: cameraSelect.options[cameraSelect.selectedIndex]?.text || "",
+        audioName: audioSelect.options[audioSelect.selectedIndex]?.text || ""
       };
-      localStorage.setItem("linkdn_device_setup", JSON.stringify(config));
-      alert("Device selections saved.");
-    });
 
-    loadDevices();
+      localStorage.setItem("linkdn_device_setup", JSON.stringify(config));
+      loadSavedConfig();
+      setStatus("Device selections saved.");
+    }
+
+    cameraSelect.addEventListener("change", updateSelectedText);
+    audioSelect.addEventListener("change", updateSelectedText);
+
+    document.getElementById("requestAccessBtn").addEventListener("click", requestMediaAccess);
+    document.getElementById("refreshDevicesBtn").addEventListener("click", loadDevices);
+    document.getElementById("saveDevicesBtn").addEventListener("click", saveDevices);
+
+    async function init() {
+      try {
+        document.getElementById("menu").innerHTML = LinkdNNav.venue();
+      } catch (err) {
+        setStatus("Navigation failed to load.");
+      }
+
+      const allowed = await ensureVenueAccess();
+      if (!allowed) return;
+
+      loadSavedConfig();
+      await loadDevices();
+    }
+
+    init();
   </script>
 </body>
 </html>

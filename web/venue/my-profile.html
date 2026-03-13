@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>My Profile</title>
+  <link rel="stylesheet" href="/common/app.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/common/config.js"></script>
+  <script src="/common/supabase.js"></script>
+  <script src="/common/auth-live.js"></script>
+  <script src="/common/nav.js"></script>
+</head>
+<body>
+  <div class="page-wrap">
+    <div id="menu"></div>
+
+    <div class="form-card">
+      <h2>Edit My Profile</h2>
+      <form id="profileForm">
+        <label>Display Name</label>
+        <input id="display_name" name="display_name" />
+
+        <label style="margin-top:14px;">Email</label>
+        <input id="email" name="email" disabled />
+
+        <label style="margin-top:14px;">Role</label>
+        <input id="role" name="role" disabled />
+
+        <div class="form-actions">
+          <button type="submit">Save Profile</button>
+        </div>
+      </form>
+      <p id="status" class="notice" style="display:none;margin-top:14px;"></p>
+    </div>
+  </div>
+
+  <script>
+    document.getElementById("menu").innerHTML = LinkdNNav.venue();
+
+    async function loadProfile() {
+      const profile = await LinkdNAuthLive.getProfile();
+      if (!profile) return location.href = "/auth/login.html";
+
+      document.getElementById("display_name").value = profile.display_name || "";
+      document.getElementById("email").value = profile.email || "";
+      document.getElementById("role").value = profile.role || "";
+    }
+
+    document.getElementById("profileForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const status = document.getElementById("status");
+      status.style.display = "none";
+
+      try {
+        const supabase = window.LinkdNSupabase.getClient();
+        const user = await LinkdNAuthLive.getUser();
+
+        const { error } = await supabase
+          .from("profiles")
+          .update({
+            display_name: document.getElementById("display_name").value.trim()
+          })
+          .eq("id", user.id);
+
+        if (error) throw error;
+
+        status.style.display = "block";
+        status.textContent = "Profile updated.";
+      } catch (err) {
+        status.style.display = "block";
+        status.textContent = err.message || "Could not update profile.";
+      }
+    });
+
+    loadProfile();
+  </script>
+</body>
+</html>

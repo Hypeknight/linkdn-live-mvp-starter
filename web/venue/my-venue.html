@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>My Venue</title>
+  <link rel="stylesheet" href="/common/app.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/common/config.js"></script>
+  <script src="/common/supabase.js"></script>
+  <script src="/common/auth-live.js"></script>
+  <script src="/common/nav.js"></script>
+</head>
+<body>
+  <div class="page-wrap">
+    <div id="menu"></div>
+
+    <div class="form-card">
+      <h2>Manage My Venue</h2>
+      <form id="venueForm">
+        <label>Venue Name</label>
+        <input id="venue_name" />
+
+        <label style="margin-top:14px;">Slug</label>
+        <input id="venue_slug" />
+
+        <label style="margin-top:14px;">City</label>
+        <input id="venue_city" />
+
+        <div class="form-actions">
+          <button type="submit">Save Venue</button>
+          <button type="button" id="deactivateBtn">Deactivate Venue</button>
+        </div>
+      </form>
+      <p id="status" class="notice" style="display:none;margin-top:14px;"></p>
+    </div>
+  </div>
+
+  <script>
+    document.getElementById("menu").innerHTML = LinkdNNav.venue();
+
+    let activeVenueId = null;
+
+    async function loadVenue() {
+      const profile = await LinkdNAuthLive.getProfile();
+      if (!profile) return location.href = "/auth/login.html";
+
+      const firstMembership = (profile.venue_memberships || [])[0];
+      if (!firstMembership) return;
+
+      const supabase = window.LinkdNSupabase.getClient();
+      const { data, error } = await supabase
+        .from("venues")
+        .select("*")
+        .eq("id", firstMembership.venue_id)
+        .single();
+
+      if (error || !data) return;
+
+      activeVenueId = data.id;
+      document.getElementById("venue_name").value = data.name || "";
+      document.getElementById("venue_slug").value = data.slug || "";
+      document.getElementById("venue_city").value = data.city || "";
+    }
+
+    document.getElementById("venueForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const status = document.getElementById("status");
+      status.style.display = "none";
+
+      try {
+        const profile = await LinkdNAuthLive.getProfile();
+        const supabase = window.LinkdNSupabase.getClient();
+
+        const payload = {
+          name: document.getElementById("venue_name").value.trim(),
+          slug: document.getElementById("venue_slug").value.trim(),
+          city: document.getElementById("venue_city").value.trim(),
+          active: true
+        };
+
+        if (activeVenueId) {
+          const { error } = await supabase
+            .from("venues")
+            .update(payload)
+            .eq("id", activeVenueId);
+
+          if (error) throw error;
+        } else {
+          const { data, error } = await supabase
+            .from("venues")
+            .insert({
+              ...payload,
+              owner_profile_id: profile.id
+            })
+            .select()
+            .single();
+
+          if (error) throw error;
+
+          activeVenueId = data.id;
+
+          await supabase.from("venue_members").insert({
+            venue_id: data.id,
+            profile_id: profile.id,
+            access_level: "owner",
+            active: true
+          });
+        }
+
+        status.style.display = "block";
+        status.textContent = "Venue saved.";
+      } catch (err) {
+        status.style.display = "block";
+        status.textContent = err.message || "Could not save venue.";
+      }
+    });
+
+    document.getElementById("deactivateBtn").addEventListener("click", async () => {
+      if (!activeVenueId) return;
+
+      const status = document.getElementById("status");
+      status.style.display = "none";
+
+      try {
+        const supabase = window.LinkdNSupabase.getClient();
+        const { error } = await supabase
+          .from("venues")
+          .update({ active: false })
+          .eq("id", activeVenueId);
+
+        if (error) throw error;
+
+        status.style.display = "block";
+        status.textContent = "Venue deactivated.";
+      } catch (err) {
+        status.style.display = "block";
+        status.textContent = err.message || "Could not deactivate venue.";
+      }
+    });
+
+    loadVenue();
+  </script>
+</body>
+</html>

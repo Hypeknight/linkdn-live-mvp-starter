@@ -9,6 +9,7 @@
   <script src="/common/config.js"></script>
   <script src="/common/supabase.js"></script>
   <script src="/common/auth-live.js"></script>
+  <script src="/common/nav.js"></script>
 </head>
 <body>
 
@@ -35,6 +36,7 @@
     </div>
   </div>
   <script>
+    document.getElementById("menu").innerHTML = LinkdNNav.moderator();
     const form = document.getElementById("venueProfileForm");
     const venueSelect = document.getElementById("venueMembershipSelect");
     const statusEl = document.getElementById("venueStatus");

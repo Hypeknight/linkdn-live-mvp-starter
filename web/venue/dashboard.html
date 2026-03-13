@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Venue Dashboard</title>
+  <link rel="stylesheet" href="/common/app.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/common/config.js"></script>
+  <script src="/common/supabase.js"></script>
+  <script src="/common/auth-live.js"></script>
+  <script src="/common/nav.js"></script>
+</head>
+<body>
+  <div class="page-wrap">
+    <div id="menu"></div>
+
+    <div class="feature-grid" style="margin-top:20px;">
+      <div class="feature-card">
+        <h3>My Account</h3>
+        <p><strong>Name:</strong> <span id="userName">Loading...</span></p>
+        <p><strong>Email:</strong> <span id="userEmail">-</span></p>
+        <p><strong>Role:</strong> <span id="userRole">-</span></p>
+      </div>
+
+      <div class="feature-card">
+        <h3>My Venue</h3>
+        <div id="venueSummary">Loading...</div>
+      </div>
+
+      <div class="feature-card">
+        <h3>Quick Actions</h3>
+        <div class="form-actions" style="flex-direction:column;">
+          <a href="/venue/my-profile.html"><button type="button">Edit My Profile</button></a>
+          <a href="/venue/my-venue.html"><button type="button">Manage My Venue</button></a>
+          <a href="/venue/device-setup.html"><button type="button">Set Up Devices</button></a>
+          <a href="/venue/ready-check.html"><button type="button">Ready Check</button></a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    document.getElementById("menu").innerHTML = LinkdNNav.venue();
+
+    async function loadDashboard() {
+      const profile = await LinkdNAuthLive.getProfile();
+      if (!profile) {
+        location.href = "/auth/login.html";
+        return;
+      }
+
+      document.getElementById("userName").textContent = profile.display_name || "-";
+      document.getElementById("userEmail").textContent = profile.email || "-";
+      document.getElementById("userRole").textContent = profile.role || "-";
+
+      const memberships = profile.venue_memberships || [];
+      document.getElementById("venueSummary").innerHTML = memberships.length
+        ? memberships.map(m => `<div class="pill">${m.venue_name} (${m.access_level})</div>`).join("")
+        : `<div class="notice">No venue assigned yet.</div>`;
+    }
+
+    loadDashboard();
+  </script>
+</body>
+</html>

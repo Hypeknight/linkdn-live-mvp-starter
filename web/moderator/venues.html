@@ -6,10 +6,10 @@
   <title>Manage Venues - Linkd'N</title>
   <link rel="stylesheet" href="/common/app.css" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="/common/config.js?v=live1"></script>
-  <script src="/common/supabase.js?v=live1"></script>
-  <script src="/common/auth-live.js?v=live1"></script>
-  <script src="/common/nav.js?v=live1"></script>
+  <script src="/common/config.js?v=live2"></script>
+  <script src="/common/supabase.js?v=live2"></script>
+  <script src="/common/auth-live.js?v=live2"></script>
+  <script src="/common/nav.js?v=live2"></script>
 </head>
 <body>
   <div class="page-wrap">
@@ -19,14 +19,26 @@
       <h2>Add / Edit Venue</h2>
       <form id="venueForm">
         <input type="hidden" id="venue_id" />
+
         <label>Venue Name</label>
         <input id="name" required />
 
-        <label style="margin-top:14px;">Slug</label>
-        <input id="slug" required />
+        <label style="margin-top:14px;">Street Address</label>
+        <input id="street_address" />
 
-        <label style="margin-top:14px;">City</label>
-        <input id="city" />
+        <div class="form-row" style="margin-top:14px;">
+          <div>
+            <label>City</label>
+            <input id="city" />
+          </div>
+          <div>
+            <label>State</label>
+            <input id="state" maxlength="2" />
+          </div>
+        </div>
+
+        <label style="margin-top:14px;">ZIP</label>
+        <input id="zip" />
 
         <label style="margin-top:14px;">Status</label>
         <select id="active">
@@ -34,11 +46,16 @@
           <option value="false">Inactive</option>
         </select>
 
+        <div class="notice" style="margin-top:14px;">
+          Slug is created automatically from venue name, city, and state.
+        </div>
+
         <div class="form-actions">
           <button type="submit">Save Venue</button>
           <button type="button" id="resetBtn">Clear Form</button>
         </div>
       </form>
+
       <p id="status" class="notice" style="display:none;margin-top:14px;"></p>
     </div>
 
@@ -47,8 +64,9 @@
         <thead>
           <tr>
             <th>Name</th>
-            <th>Slug</th>
-            <th>City</th>
+            <th>Address</th>
+            <th>City/State</th>
+            <th>ZIP</th>
             <th>Active</th>
             <th>Owner</th>
             <th>Actions</th>
@@ -71,9 +89,21 @@
     function clearForm() {
       document.getElementById("venue_id").value = "";
       document.getElementById("name").value = "";
-      document.getElementById("slug").value = "";
+      document.getElementById("street_address").value = "";
       document.getElementById("city").value = "";
+      document.getElementById("state").value = "";
+      document.getElementById("zip").value = "";
       document.getElementById("active").value = "true";
+    }
+
+    function makeSlug(name, city, state) {
+      return [name, city, state]
+        .filter(Boolean)
+        .join("-")
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "")
+        .replace(/-{2,}/g, "-");
     }
 
     async function ensureModerator() {
@@ -102,7 +132,10 @@
           id,
           name,
           slug,
+          street_address,
           city,
+          state,
+          zip,
           active,
           owner_profile_id,
           profiles:owner_profile_id (
@@ -121,7 +154,7 @@
       tbody.innerHTML = "";
 
       if (!data || !data.length) {
-        tbody.innerHTML = `<tr><td colspan="6">No venues found.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7">No venues found.</td></tr>`;
         return;
       }
 
@@ -129,8 +162,9 @@
         const tr = document.createElement("tr");
         tr.innerHTML = `
           <td>${venue.name || "-"}</td>
-          <td>${venue.slug || "-"}</td>
-          <td>${venue.city || "-"}</td>
+          <td>${venue.street_address || "-"}</td>
+          <td>${[venue.city || "-", venue.state || "-"].join(", ")}</td>
+          <td>${venue.zip || "-"}</td>
           <td>${venue.active ? "Yes" : "No"}</td>
           <td>${venue.profiles?.display_name || venue.profiles?.email || "-"}</td>
           <td>
@@ -147,8 +181,10 @@
     window.editVenue = function(venue) {
       document.getElementById("venue_id").value = venue.id || "";
       document.getElementById("name").value = venue.name || "";
-      document.getElementById("slug").value = venue.slug || "";
+      document.getElementById("street_address").value = venue.street_address || "";
       document.getElementById("city").value = venue.city || "";
+      document.getElementById("state").value = venue.state || "";
+      document.getElementById("zip").value = venue.zip || "";
       document.getElementById("active").value = String(venue.active);
       window.scrollTo({ top: 0, behavior: "smooth" });
     };
@@ -178,10 +214,17 @@
       const supabase = window.LinkdNSupabase.getClient();
 
       const venueId = document.getElementById("venue_id").value.trim();
+      const name = document.getElementById("name").value.trim();
+      const city = document.getElementById("city").value.trim();
+      const state = document.getElementById("state").value.trim().toUpperCase();
+
       const payload = {
-        name: document.getElementById("name").value.trim(),
-        slug: document.getElementById("slug").value.trim(),
-        city: document.getElementById("city").value.trim(),
+        name,
+        slug: makeSlug(name, city, state),
+        street_address: document.getElementById("street_address").value.trim(),
+        city,
+        state,
+        zip: document.getElementById("zip").value.trim(),
         active: document.getElementById("active").value === "true"
       };
 

@@ -1,2 +1,241 @@
-<!doctype html><html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>Venue Ops</title><link rel='stylesheet' href='../common/app.css'><script src='../common/shared.js'></script></head><body><header><div class='container'><h1>Venue Operations</h1><div class='nav'><a href='index.html'>Home</a><a href='rooms.html'>Rooms</a><a href='schedules.html'>Schedules</a><a href='show-control.html'>Show Control</a><a href='venue-ops.html'>Venue Ops</a><a href='patron-pulse.html'>Patron Pulse</a></div></div></header><div class='container'><div class='panel'><h2>Venue Board</h2><div id='grid' class='grid grid-3'></div></div></div><script>const S=window.LinkdNShared;function render(){const st=S.loadState();grid.innerHTML=S.VENUES.map(v=>{const x=st.venueStates[v.id];return `<div class='item'><strong>${v.name}</strong><br><span class='muted'>Ready: ${x.workflow.ready?'Yes':'No'} | Ack: ${x.workflow.acknowledged?'Yes':'No'}</span><br><span class='muted'>Cam: ${x.localControls.cameraOn?'On':'Off'} | Mic: ${x.localControls.micOn?'On':'Off'} | DJ: ${x.localControls.djReady?'Ready':'No'}</span><br><span class='muted'>Issue: ${x.workflow.issue||'None'}</span><div class='toolbar' style='margin-top:10px'><button class='warning' onclick='tog("${v.id}","mutedByModerator")'>${x.networkStatus.mutedByModerator?'Unmute':'Mute'}</button><button class='danger' onclick='tog("${v.id}","cutByModerator")'>${x.networkStatus.cutByModerator?'Restore':'Cut'}</button><button class='primary' onclick='tog("${v.id}","spotlighted")'>${x.networkStatus.spotlighted?'Unspotlight':'Spotlight'}</button></div></div>`;}).join('');}
-window.tog=(id,key)=>{const st=S.loadState();st.venueStates[id].networkStatus[key]=!st.venueStates[id].networkStatus[key];S.log(st,`${S.venueName(id)} ${key} toggled.`);S.saveState(st);render();}; window.addEventListener('storage',e=>{if(e.key===S.STORAGE_KEY)render()});render();</script></body></html>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Local Controls - Linkd'N</title>
+  <link rel="stylesheet" href="/common/app.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/livekit-client/dist/livekit-client.umd.min.js"></script>
+  <script src="/common/config.js?v=live3"></script>
+  <script src="/common/supabase.js?v=live3"></script>
+  <script src="/common/auth-live.js?v=live3"></script>
+  <script src="/common/nav.js?v=live3"></script>
+  <script src="/common/livekit.js?v=live3"></script>
+</head>
+<body>
+  <div class="page-wrap">
+    <div id="menu"></div>
+
+    <div class="form-card">
+      <h2>Venue Local Controls</h2>
+      <div id="status" class="notice">Loading...</div>
+
+      <div class="form-row" style="margin-top:16px;">
+        <div>
+          <label>Room</label>
+          <input id="roomName" value="central-battle-room" />
+        </div>
+        <div>
+          <label>Identity</label>
+          <input id="identity" />
+        </div>
+      </div>
+
+      <div class="form-actions" style="margin-top:16px;">
+        <button type="button" id="connectBtn">Connect to Room</button>
+        <button type="button" id="disconnectBtn">Disconnect</button>
+      </div>
+
+      <div class="form-row" style="margin-top:16px;">
+        <div>
+          <label>Camera Device</label>
+          <select id="cameraSelect"></select>
+        </div>
+        <div>
+          <label>Microphone / Interface</label>
+          <select id="audioSelect"></select>
+        </div>
+      </div>
+
+      <div class="form-actions" style="margin-top:16px;">
+        <button type="button" id="refreshDevicesBtn">Refresh Devices</button>
+        <button type="button" id="switchCameraBtn">Use Selected Camera</button>
+        <button type="button" id="switchAudioBtn">Use Selected Audio</button>
+      </div>
+
+      <div class="form-actions" style="margin-top:16px;">
+        <button type="button" id="cameraOnBtn">Camera On</button>
+        <button type="button" id="cameraOffBtn">Camera Off</button>
+        <button type="button" id="micOnBtn">Mic On</button>
+        <button type="button" id="micOffBtn">Mic Off</button>
+      </div>
+    </div>
+
+    <div class="feature-grid" style="margin-top:24px;">
+      <div class="feature-card">
+        <h3>Local Preview</h3>
+        <video id="localPreview" autoplay playsinline muted style="width:100%;max-width:480px;border-radius:12px;border:1px solid #355581;background:#000;"></video>
+      </div>
+      <div class="feature-card">
+        <h3>Remote Feeds</h3>
+        <div id="remoteFeeds"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    document.getElementById("menu").innerHTML = LinkdNNav.venue();
+
+    const statusEl = document.getElementById("status");
+    const roomNameEl = document.getElementById("roomName");
+    const identityEl = document.getElementById("identity");
+    const cameraSelect = document.getElementById("cameraSelect");
+    const audioSelect = document.getElementById("audioSelect");
+    const localPreview = document.getElementById("localPreview");
+    const remoteFeeds = document.getElementById("remoteFeeds");
+
+    function setStatus(msg) {
+      statusEl.textContent = msg;
+    }
+
+    async function loadIdentity() {
+      const profile = await LinkdNAuthLive.getProfile();
+      if (!profile) {
+        location.href = "/auth/login.html";
+        return null;
+      }
+      if (!["venue_owner", "venue_staff"].includes(profile.role)) {
+        alert("Venue access only.");
+        location.href = "/profile/index.html";
+        return null;
+      }
+
+      identityEl.value = `venue-${profile.id}`;
+      return profile;
+    }
+
+    async function loadDevices() {
+      try {
+        const { videoInputs, audioInputs } = await LinkdNLiveKit.listDevices();
+
+        cameraSelect.innerHTML = videoInputs.length
+          ? videoInputs.map(d => `<option value="${d.deviceId}">${d.label || "Camera"}</option>`).join("")
+          : `<option value="">No cameras found</option>`;
+
+        audioSelect.innerHTML = audioInputs.length
+          ? audioInputs.map(d => `<option value="${d.deviceId}">${d.label || "Audio Input"}</option>`).join("")
+          : `<option value="">No audio inputs found</option>`;
+
+        const saved = JSON.parse(localStorage.getItem("linkdn_device_setup") || "{}");
+        if (saved.cameraId) cameraSelect.value = saved.cameraId;
+        if (saved.audioId) audioSelect.value = saved.audioId;
+
+        setStatus("Devices loaded.");
+      } catch (err) {
+        setStatus(err.message || "Could not load devices.");
+      }
+    }
+
+    async function connectRoom() {
+      try {
+        const profile = await loadIdentity();
+        if (!profile) return;
+
+        const room = await LinkdNLiveKit.connect({
+          roomName: roomNameEl.value.trim(),
+          identity: identityEl.value.trim(),
+          name: profile.display_name || profile.email,
+          metadata: JSON.stringify({
+            role: profile.role,
+            profileId: profile.id
+          }),
+        });
+
+        // apply saved preferred devices after connect
+        const saved = JSON.parse(localStorage.getItem("linkdn_device_setup") || "{}");
+        if (saved.cameraId) {
+          await LinkdNLiveKit.switchCamera(saved.cameraId);
+        }
+        if (saved.audioId) {
+          await LinkdNLiveKit.switchMicrophone(saved.audioId);
+        }
+
+        await LinkdNLiveKit.enableCamera(true);
+        await LinkdNLiveKit.enableMicrophone(true);
+
+        // local preview from current camera track
+        const pub = room.localParticipant.getTrackPublication(window.livekit.Track.Source.Camera);
+        const localTrack = pub?.videoTrack;
+        if (localTrack) {
+          const el = localTrack.attach();
+          localPreview.replaceWith(el);
+          el.id = "localPreview";
+          el.autoplay = true;
+          el.muted = true;
+          el.playsInline = true;
+          el.style.width = "100%";
+          el.style.maxWidth = "480px";
+          el.style.borderRadius = "12px";
+          el.style.border = "1px solid #355581";
+          el.style.background = "#000";
+        }
+
+        await LinkdNLiveKit.attachRemoteTracks(remoteFeeds);
+
+        setStatus("Connected to room.");
+      } catch (err) {
+        setStatus(err.message || "Could not connect to LiveKit room.");
+      }
+    }
+
+    document.getElementById("connectBtn").addEventListener("click", connectRoom);
+    document.getElementById("disconnectBtn").addEventListener("click", async () => {
+      await LinkdNLiveKit.disconnect();
+      setStatus("Disconnected.");
+      remoteFeeds.innerHTML = "";
+    });
+
+    document.getElementById("refreshDevicesBtn").addEventListener("click", loadDevices);
+
+    document.getElementById("switchCameraBtn").addEventListener("click", async () => {
+      try {
+        await LinkdNLiveKit.switchCamera(cameraSelect.value);
+        const saved = JSON.parse(localStorage.getItem("linkdn_device_setup") || "{}");
+        saved.cameraId = cameraSelect.value;
+        saved.cameraName = cameraSelect.options[cameraSelect.selectedIndex]?.text || "";
+        localStorage.setItem("linkdn_device_setup", JSON.stringify(saved));
+        setStatus("Camera switched.");
+      } catch (err) {
+        setStatus(err.message || "Could not switch camera.");
+      }
+    });
+
+    document.getElementById("switchAudioBtn").addEventListener("click", async () => {
+      try {
+        await LinkdNLiveKit.switchMicrophone(audioSelect.value);
+        const saved = JSON.parse(localStorage.getItem("linkdn_device_setup") || "{}");
+        saved.audioId = audioSelect.value;
+        saved.audioName = audioSelect.options[audioSelect.selectedIndex]?.text || "";
+        localStorage.setItem("linkdn_device_setup", JSON.stringify(saved));
+        setStatus("Audio input switched.");
+      } catch (err) {
+        setStatus(err.message || "Could not switch audio input.");
+      }
+    });
+
+    document.getElementById("cameraOnBtn").addEventListener("click", async () => {
+      await LinkdNLiveKit.enableCamera(true);
+      setStatus("Camera enabled.");
+    });
+
+    document.getElementById("cameraOffBtn").addEventListener("click", async () => {
+      await LinkdNLiveKit.enableCamera(false);
+      setStatus("Camera disabled.");
+    });
+
+    document.getElementById("micOnBtn").addEventListener("click", async () => {
+      await LinkdNLiveKit.enableMicrophone(true);
+      setStatus("Microphone enabled.");
+    });
+
+    document.getElementById("micOffBtn").addEventListener("click", async () => {
+      await LinkdNLiveKit.enableMicrophone(false);
+      setStatus("Microphone disabled.");
+    });
+
+    loadIdentity();
+    loadDevices();
+  </script>
+</body>
+</html>

@@ -6,10 +6,10 @@
   <title>My Venue</title>
   <link rel="stylesheet" href="/common/app.css" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="/common/config.js"></script>
-  <script src="/common/supabase.js"></script>
-  <script src="/common/auth-live.js"></script>
-  <script src="/common/nav.js"></script>
+  <script src="/common/config.js?v=live2"></script>
+  <script src="/common/supabase.js?v=live2"></script>
+  <script src="/common/auth-live.js?v=live2"></script>
+  <script src="/common/nav.js?v=live2"></script>
 </head>
 <body>
   <div class="page-wrap">
@@ -19,19 +19,41 @@
       <h2>Manage My Venue</h2>
       <form id="venueForm">
         <label>Venue Name</label>
-        <input id="venue_name" />
+        <input id="venue_name" required />
 
-        <label style="margin-top:14px;">Slug</label>
-        <input id="venue_slug" />
+        <label style="margin-top:14px;">Street Address</label>
+        <input id="street_address" placeholder="123 Main St" />
 
-        <label style="margin-top:14px;">City</label>
-        <input id="venue_city" />
+        <div class="form-row" style="margin-top:14px;">
+          <div>
+            <label>City</label>
+            <input id="venue_city" />
+          </div>
+          <div>
+            <label>State</label>
+            <input id="venue_state" placeholder="MO" maxlength="2" />
+          </div>
+        </div>
+
+        <label style="margin-top:14px;">ZIP</label>
+        <input id="venue_zip" placeholder="64101" />
+
+        <label style="margin-top:14px;">Status</label>
+        <select id="venue_active">
+          <option value="true">Active</option>
+          <option value="false">Inactive</option>
+        </select>
+
+        <div class="notice" style="margin-top:14px;">
+          Slug is generated automatically from venue name, city, and state.
+        </div>
 
         <div class="form-actions">
           <button type="submit">Save Venue</button>
           <button type="button" id="deactivateBtn">Deactivate Venue</button>
         </div>
       </form>
+
       <p id="status" class="notice" style="display:none;margin-top:14px;"></p>
     </div>
   </div>
@@ -41,12 +63,31 @@
 
     let activeVenueId = null;
 
+    function showStatus(message) {
+      const el = document.getElementById("status");
+      el.style.display = "block";
+      el.textContent = message;
+    }
+
+    function makeSlug(name, city, state) {
+      return [name, city, state]
+        .filter(Boolean)
+        .join("-")
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "")
+        .replace(/-{2,}/g, "-");
+    }
+
     async function loadVenue() {
       const profile = await LinkdNAuthLive.getProfile();
       if (!profile) return location.href = "/auth/login.html";
 
       const firstMembership = (profile.venue_memberships || [])[0];
-      if (!firstMembership) return;
+      if (!firstMembership?.venue_id) {
+        showStatus("No venue assigned yet. Create your first venue below.");
+        return;
+      }
 
       const supabase = window.LinkdNSupabase.getClient();
       const { data, error } = await supabase
@@ -55,28 +96,47 @@
         .eq("id", firstMembership.venue_id)
         .single();
 
-      if (error || !data) return;
+      if (error || !data) {
+        showStatus("Could not load current venue.");
+        return;
+      }
 
       activeVenueId = data.id;
       document.getElementById("venue_name").value = data.name || "";
-      document.getElementById("venue_slug").value = data.slug || "";
+      document.getElementById("street_address").value = data.street_address || "";
       document.getElementById("venue_city").value = data.city || "";
+      document.getElementById("venue_state").value = data.state || "";
+      document.getElementById("venue_zip").value = data.zip || "";
+      document.getElementById("venue_active").value = String(data.active);
     }
 
     document.getElementById("venueForm").addEventListener("submit", async (e) => {
       e.preventDefault();
-      const status = document.getElementById("status");
-      status.style.display = "none";
+      showStatus("Saving venue...");
 
       try {
         const profile = await LinkdNAuthLive.getProfile();
+        if (!profile) return location.href = "/auth/login.html";
+
         const supabase = window.LinkdNSupabase.getClient();
 
+        const name = document.getElementById("venue_name").value.trim();
+        const street_address = document.getElementById("street_address").value.trim();
+        const city = document.getElementById("venue_city").value.trim();
+        const state = document.getElementById("venue_state").value.trim().toUpperCase();
+        const zip = document.getElementById("venue_zip").value.trim();
+        const active = document.getElementById("venue_active").value === "true";
+
+        const slug = makeSlug(name, city, state);
+
         const payload = {
-          name: document.getElementById("venue_name").value.trim(),
-          slug: document.getElementById("venue_slug").value.trim(),
-          city: document.getElementById("venue_city").value.trim(),
-          active: true
+          name,
+          slug,
+          street_address,
+          city,
+          state,
+          zip,
+          active
         };
 
         if (activeVenueId) {
@@ -100,27 +160,29 @@
 
           activeVenueId = data.id;
 
-          await supabase.from("venue_members").insert({
-            venue_id: data.id,
-            profile_id: profile.id,
-            access_level: "owner",
-            active: true
-          });
+          const { error: memberError } = await supabase
+            .from("venue_members")
+            .upsert({
+              venue_id: data.id,
+              profile_id: profile.id,
+              access_level: "owner",
+              active: true
+            }, { onConflict: "venue_id,profile_id" });
+
+          if (memberError) throw memberError;
         }
 
-        status.style.display = "block";
-        status.textContent = "Venue saved.";
+        showStatus("Venue saved successfully.");
       } catch (err) {
-        status.style.display = "block";
-        status.textContent = err.message || "Could not save venue.";
+        showStatus(err.message || "Could not save venue.");
       }
     });
 
     document.getElementById("deactivateBtn").addEventListener("click", async () => {
-      if (!activeVenueId) return;
-
-      const status = document.getElementById("status");
-      status.style.display = "none";
+      if (!activeVenueId) {
+        showStatus("No active venue to deactivate.");
+        return;
+      }
 
       try {
         const supabase = window.LinkdNSupabase.getClient();
@@ -131,11 +193,10 @@
 
         if (error) throw error;
 
-        status.style.display = "block";
-        status.textContent = "Venue deactivated.";
+        document.getElementById("venue_active").value = "false";
+        showStatus("Venue deactivated.");
       } catch (err) {
-        status.style.display = "block";
-        status.textContent = err.message || "Could not deactivate venue.";
+        showStatus(err.message || "Could not deactivate venue.");
       }
     });
 

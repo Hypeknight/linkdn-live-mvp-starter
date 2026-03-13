@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Owners & Staff - Linkd'N</title>
+  <link rel="stylesheet" href="/common/app.css" />
+  <script src="/common/ui.js"></script>
+  <script src="/common/auth.js"></script>
+</head>
+<body>
+  <div id="app"></div>
+
+  <script>
+    LinkdNAuth.requireRole(["moderator"]);
+
+    document.getElementById("app").innerHTML = LinkdNUI.dashboardShell("Owners & Staff", [
+      { href: "/moderator/dashboard.html", label: "Dashboard" },
+      { href: "/moderator/venues.html", label: "Venues" },
+      { href: "/moderator/owners.html", label: "Owners & Staff" },
+      { href: "/moderator/metrics.html", label: "Metrics" }
+    ]);
+
+    document.getElementById("page-content").innerHTML = `
+      <div class="card">
+        <h3>Add Owner / Staff</h3>
+        <form>
+          <div class="form-row">
+            <div>
+              <label>Name</label>
+              <input />
+            </div>
+            <div>
+              <label>Email</label>
+              <input type="email" />
+            </div>
+          </div>
+          <div class="form-row" style="margin-top:14px;">
+            <div>
+              <label>Role</label>
+              <select>
+                <option>venue_owner</option>
+                <option>venue_staff</option>
+                <option>moderator</option>
+              </select>
+            </div>
+            <div>
+              <label>Venue</label>
+              <input />
+            </div>
+          </div>
+          <div class="form-actions">
+            <button type="button">Create User</button>
+          </div>
+        </form>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Email</th>
+              <th>Role</th>
+              <th>Venue</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>KC Owner</td>
+              <td>kc@example.com</td>
+              <td>venue_owner</td>
+              <td>Kansas City Venue</td>
+              <td>active</td>
+            </tr>
+            <tr>
+              <td>Miami Manager</td>
+              <td>miami.staff@example.com</td>
+              <td>venue_staff</td>
+              <td>Miami Club</td>
+              <td>active</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    `;
+  </script>
+</body>
+</html>

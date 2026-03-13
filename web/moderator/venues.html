@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Manage Venues - Linkd'N</title>
+  <link rel="stylesheet" href="/common/app.css" />
+  <script src="/common/ui.js"></script>
+  <script src="/common/auth.js"></script>
+</head>
+<body>
+  <div id="app"></div>
+
+  <script>
+    LinkdNAuth.requireRole(["moderator"]);
+
+    document.getElementById("app").innerHTML = LinkdNUI.dashboardShell("Manage Venues", [
+      { href: "/moderator/dashboard.html", label: "Dashboard" },
+      { href: "/moderator/venues.html", label: "Venues" },
+      { href: "/moderator/owners.html", label: "Owners & Staff" },
+      { href: "/moderator/metrics.html", label: "Metrics" }
+    ]);
+
+    document.getElementById("page-content").innerHTML = `
+      <div class="card">
+        <h3>Add / Edit Venue</h3>
+        <form id="venueForm">
+          <div class="form-row">
+            <div>
+              <label>Venue Name</label>
+              <input name="name" />
+            </div>
+            <div>
+              <label>City</label>
+              <input name="city" />
+            </div>
+          </div>
+          <div class="form-row" style="margin-top:14px;">
+            <div>
+              <label>Status</label>
+              <select name="status">
+                <option>active</option>
+                <option>inactive</option>
+                <option>probation</option>
+              </select>
+            </div>
+            <div>
+              <label>Owner</label>
+              <input name="owner" placeholder="Owner name or email" />
+            </div>
+          </div>
+          <div class="form-actions">
+            <button type="submit">Save Venue</button>
+          </div>
+        </form>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Venue</th>
+              <th>City</th>
+              <th>Status</th>
+              <th>Owner</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Kansas City Venue</td>
+              <td>Kansas City</td>
+              <td>active</td>
+              <td>KC Owner</td>
+              <td>Edit / Suspend / Delete</td>
+            </tr>
+            <tr>
+              <td>Miami Club</td>
+              <td>Miami</td>
+              <td>probation</td>
+              <td>Miami Owner</td>
+              <td>Edit / Suspend / Delete</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    `;
+  </script>
+</body>
+</html>

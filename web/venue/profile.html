@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Venue Profile - Linkd'N</title>
+  <link rel="stylesheet" href="/common/app.css" />
+  <script src="/common/ui.js"></script>
+  <script src="/common/auth.js"></script>
+</head>
+<body>
+  <div id="app"></div>
+
+  <script>
+    LinkdNAuth.requireRole(["venue_owner", "venue_staff"]);
+
+    document.getElementById("app").innerHTML = LinkdNUI.dashboardShell("Venue Profile", [
+      { href: "/venue/index.html", label: "Venue Home" },
+      { href: "/venue/profile.html", label: "Venue Profile" },
+      { href: "/venue/ready-check.html", label: "Ready Check" },
+      { href: "/venue/local-controls.html", label: "Local Controls" },
+      { href: "/venue/device-setup.html", label: "Device Setup" },
+      { href: "/venue/screen-settings.html", label: "Screen Settings" },
+      { href: "/venue/support.html", label: "Support" }
+    ]);
+
+    document.getElementById("page-content").innerHTML = `
+      <div class="card">
+        <h3>Venue Information</h3>
+        <form>
+          <div class="form-row">
+            <div>
+              <label>Venue Name</label>
+              <input value="Kansas City Venue" />
+            </div>
+            <div>
+              <label>City</label>
+              <input value="Kansas City" />
+            </div>
+          </div>
+
+          <div class="form-row" style="margin-top:14px;">
+            <div>
+              <label>Venue Status</label>
+              <select>
+                <option>active</option>
+                <option>inactive</option>
+              </select>
+            </div>
+            <div>
+              <label>Support Contact</label>
+              <input value="owner@venue.com" />
+            </div>
+          </div>
+
+          <div style="margin-top:14px;">
+            <label>Notes</label>
+            <textarea>Primary live room venue. Patron Pulse enabled.</textarea>
+          </div>
+
+          <div class="form-actions">
+            <button type="button">Save Venue Profile</button>
+          </div>
+        </form>
+      </div>
+    `;
+  </script>
+</body>
+</html>

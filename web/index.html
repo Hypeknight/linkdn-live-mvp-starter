@@ -1,18 +1,66 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Linkd'N Mock Launchpad</title><link rel="stylesheet" href="common/app.css"><script src="common/shared.js"></script></head>
-<body><header><div class="container"><h1>Linkd'N Mock Launchpad</h1><div class="muted">Full local mock system for moderators, venues, patron pulse, and venue screens.</div></div></header>
-<div class="container"><div class="panel"><div class="hero"><div><h2>Quick Start</h2><div class="muted">Use one browser profile for moderator and another tab/device for venues and patrons. State persists in localStorage.</div></div><div class="nav"><a href="moderator/index.html">Moderator Home</a><a href="venue/index.html">Venue Home</a><a href="patron/index.html?room=central-battle-room">Patron Pulse</a><a href="venue-screen/index.html">Venue Screen</a></div></div></div>
-<div class="grid grid-2"><div class="panel"><h2>Profiles & Test Setup</h2><div class="grid grid-2"><div class="item"><div class="muted">Moderator Name</div><input id="modName" value="MOD-1"></div><div class="item"><div class="muted">Venue Node</div><select id="venueNode"></select></div><div class="item"><div class="muted">Venue Room</div><select id="venueRoom"></select></div><div class="item"><div class="muted">Patron Room</div><select id="patronRoom"></select></div></div><div class="toolbar" style="margin-top:12px"><button id="saveProfiles" class="success">Save Local Test Profiles</button><button id="resetStorage" class="danger">Reset Local Storage</button><button id="seedState" class="primary">Reset Mock Network State</button></div></div><div class="panel"><h2>System Snapshot</h2><div id="snapshot"></div></div></div>
-<div class="grid grid-4"><a class="card" href="moderator/index.html"><h3>Moderator App</h3><div class="muted">Home, rooms, schedules, show control, venue ops, patron pulse.</div></a><a class="card" href="venue/index.html"><h3>Venue App</h3><div class="muted">Simple venue workflow, local controls, support, and screen settings.</div></a><a class="card" href="patron/index.html?room=central-battle-room"><h3>Patron Pulse</h3><div class="muted">Mobile voting page for next city, next game, and winner.</div></a><a class="card" href="venue-screen/index.html"><h3>Venue Screen</h3><div class="muted">In-venue display output with source permission controls.</div></a></div></div>
-<script>
-const S=window.LinkdNShared; const st=S.loadState();
-venueNode.innerHTML=S.VENUES.map(v=>`<option value="${v.id}">${v.name}</option>`).join('');
-const roomOpts=st.rooms.map(r=>`<option value="${r.id}">${r.title}</option>`).join('');
-venueRoom.innerHTML=roomOpts; patronRoom.innerHTML=roomOpts;
-modName.value=localStorage.getItem('testModeratorName')||'MOD-1'; venueNode.value=localStorage.getItem('venueNodeId')||'kc'; venueRoom.value=localStorage.getItem('venueRoomId')||st.activeRoomId; patronRoom.value=localStorage.getItem('patronRoomId')||st.activeRoomId;
-function renderSnap(){ const s=S.loadState(); snapshot.innerHTML=`<div class='item'><strong>Rooms:</strong> ${s.rooms.length}<br><strong>Active Room:</strong> ${s.activeRoomId}<br><strong>Segment:</strong> ${s.currentSegment}<br><strong>Round:</strong> ${s.currentRound}<br><strong>Judge:</strong> ${S.venueName(s.judgeVenue)}</div>`; }
-saveProfiles.onclick=()=>{ localStorage.setItem('testModeratorName',modName.value.trim()); localStorage.setItem('venueNodeId',venueNode.value); localStorage.setItem('venueRoomId',venueRoom.value); localStorage.setItem('patronRoomId',patronRoom.value); alert('Local test profiles saved.'); };
-resetStorage.onclick=()=>{ localStorage.clear(); location.reload(); };
-seedState.onclick=()=>{ localStorage.removeItem(S.STORAGE_KEY); S.loadState(); renderSnap(); alert('Mock network state reset.'); };
-renderSnap();
-</script></body></html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Linkd'N</title>
+  <link rel="stylesheet" href="/common/app.css" />
+  <script src="/common/ui.js"></script>
+</head>
+<body>
+  <div id="app"></div>
+
+  <script>
+    document.getElementById("app").innerHTML = `
+      ${LinkdNUI.layout("Linkd'N", "Bring the world into your venue tonight.")}
+      <div class="page-wrap">
+        <section class="hero">
+          <div class="hero-panel">
+            <h2>Live cross-venue entertainment, controlled in real time.</h2>
+            <p>
+              Linkd'N connects venues, moderators, and patrons into one live show network.
+              Run city battles, DJ swaps, Patron Pulse voting, and shared venue experiences from one system.
+            </p>
+            <div class="form-actions">
+              <a href="/auth/register.html"><button>Create Account</button></a>
+              <a href="/auth/login.html"><button>Login</button></a>
+            </div>
+          </div>
+          <div class="hero-panel">
+            <h3>What Linkd'N does</h3>
+            <div class="pill">Venue Networking</div>
+            <div class="pill">Patron Pulse</div>
+            <div class="pill">Moderator Control</div>
+            <div class="pill">Live Rooms</div>
+            <div class="pill">Audience Interaction</div>
+          </div>
+        </section>
+
+        <section style="margin-top:30px;">
+          <h2>Built for</h2>
+          <div class="feature-grid">
+            <div class="feature-card">
+              <h3>Venues</h3>
+              <p>Control local devices, screen routing, readiness, and support with a lightweight dashboard.</p>
+            </div>
+            <div class="feature-card">
+              <h3>Moderators</h3>
+              <p>Manage rooms, schedules, venue behavior, show flow, and real-time event operations.</p>
+            </div>
+            <div class="feature-card">
+              <h3>Patrons</h3>
+              <p>Shape the entertainment through live audience participation using Patron Pulse.</p>
+            </div>
+          </div>
+        </section>
+
+        <section style="margin-top:30px;">
+          <div class="notice">
+            Future expansion: venue messaging, venue friends, inter-venue coordination, analytics, sponsorship layers, and audience loyalty systems.
+          </div>
+        </section>
+      </div>
+    `;
+  </script>
+</body>
+</html>

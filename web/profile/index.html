@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Profile - Linkd'N</title>
+  <link rel="stylesheet" href="/common/app.css" />
+  <script src="/common/ui.js"></script>
+  <script src="/common/auth.js"></script>
+</head>
+<body>
+  <div id="app"></div>
+
+  <script>
+    const session = LinkdNAuth.getSession();
+
+    document.getElementById("app").innerHTML = `
+      ${LinkdNUI.layout("Profile")}
+      <div class="page-wrap">
+        <div class="feature-grid">
+          <div class="feature-card">
+            <h3>Account</h3>
+            <p><strong>Name:</strong> ${session?.display_name || "Not logged in"}</p>
+            <p><strong>Email:</strong> ${session?.email || "-"}</p>
+            <p><strong>Role:</strong> ${session?.role || "-"}</p>
+          </div>
+          <div class="feature-card">
+            <h3>Venue</h3>
+            <p><strong>Venue Name:</strong> ${session?.venue_name || "Not assigned yet"}</p>
+          </div>
+          <div class="feature-card">
+            <h3>Actions</h3>
+            <div class="form-actions" style="flex-direction:column;">
+              <a href="/venue/index.html"><button type="button">Go to Venue Portal</button></a>
+              <a href="/moderator/dashboard.html"><button type="button">Go to Moderator Portal</button></a>
+              <button type="button" id="logoutBtn">Logout</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    document.getElementById("logoutBtn")?.addEventListener("click", () => {
+      LinkdNAuth.clearSession();
+      window.location.href = "/auth/login.html";
+    });
+  </script>
+</body>
+</html>

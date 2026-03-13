@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Login - Linkd'N</title>
+  <link rel="stylesheet" href="/common/app.css" />
+  <script src="/common/ui.js"></script>
+  <script src="/common/auth.js"></script>
+</head>
+<body>
+  <div id="app"></div>
+
+  <script>
+    document.getElementById("app").innerHTML = `
+      ${LinkdNUI.layout("Login to Linkd'N")}
+      <div class="page-wrap">
+        <div class="form-card">
+          <h2>Login</h2>
+          <form id="loginForm">
+            <div style="margin-top:14px;">
+              <label>Email</label>
+              <input type="email" name="email" required />
+            </div>
+            <div style="margin-top:14px;">
+              <label>Password</label>
+              <input type="password" name="password" required />
+            </div>
+            <div class="form-actions">
+              <button type="submit">Login</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    `;
+
+    document.getElementById("loginForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const data = Object.fromEntries(new FormData(e.target).entries());
+      await LinkdNAuth.mockLogin(data);
+      window.location.href = "/profile/index.html";
+    });
+  </script>
+</body>
+</html>

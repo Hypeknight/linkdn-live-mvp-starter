@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Moderator Dashboard - Linkd'N</title>
+  <link rel="stylesheet" href="/common/app.css" />
+  <script src="/common/ui.js"></script>
+  <script src="/common/auth.js"></script>
+</head>
+<body>
+  <div id="app"></div>
+
+  <script>
+    LinkdNAuth.requireRole(["moderator"]);
+
+    document.getElementById("app").innerHTML = LinkdNUI.dashboardShell("Moderator Dashboard", [
+      { href: "/moderator/dashboard.html", label: "Dashboard" },
+      { href: "/moderator/venues.html", label: "Venues" },
+      { href: "/moderator/owners.html", label: "Owners & Staff" },
+      { href: "/moderator/rooms.html", label: "Rooms" },
+      { href: "/moderator/schedules.html", label: "Schedules" },
+      { href: "/moderator/show-control.html", label: "Show Control" },
+      { href: "/moderator/venue-ops.html", label: "Venue Ops" },
+      { href: "/moderator/patron-pulse.html", label: "Patron Pulse" },
+      { href: "/moderator/metrics.html", label: "Metrics" }
+    ]);
+
+    document.getElementById("page-content").innerHTML = `
+      <div class="metric-grid">
+        <div class="metric-card">
+          <h3>Active Rooms</h3>
+          <div class="summary-value">3</div>
+        </div>
+        <div class="metric-card">
+          <h3>Active Venues</h3>
+          <div class="summary-value">6</div>
+        </div>
+        <div class="metric-card">
+          <h3>Live Polls</h3>
+          <div class="summary-value">1</div>
+        </div>
+      </div>
+
+      <div class="quick-grid" style="margin-top:24px;">
+        <div class="card">
+          <h3>Venue Alerts</h3>
+          <p>2 venues flagged for review</p>
+        </div>
+        <div class="card">
+          <h3>Tonight's Schedule</h3>
+          <p>3 rooms running active schedules</p>
+        </div>
+        <div class="card">
+          <h3>Patron Activity</h3>
+          <p>Live engagement and voting status overview</p>
+        </div>
+      </div>
+    `;
+  </script>
+</body>
+</html>

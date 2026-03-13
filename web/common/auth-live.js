@@ -1,4 +1,4 @@
-window.LinkdNAuth = (() => {
+window.LinkdNAuthLive = (() => {
   function getSupabase() {
     if (!window.LinkdNSupabase) {
       throw new Error("LinkdNSupabase is not initialized.");
@@ -19,7 +19,7 @@ window.LinkdNAuth = (() => {
     const user = data.user;
     if (!user) return data;
 
-    const { error: profileError } = await supabase.from("profiles").insert({
+    const { error: profileError } = await supabase.from("profiles").upsert({
       id: user.id,
       role,
       display_name,
@@ -46,7 +46,8 @@ window.LinkdNAuth = (() => {
 
   async function signOut() {
     const supabase = getSupabase();
-    return supabase.auth.signOut();
+    const { error } = await supabase.auth.signOut();
+    if (error) throw error;
   }
 
   async function getUser() {
@@ -61,14 +62,38 @@ window.LinkdNAuth = (() => {
     const user = await getUser();
     if (!user) return null;
 
-    const { data, error } = await supabase
+    const { data: profile, error } = await supabase
       .from("profiles")
       .select("*")
       .eq("id", user.id)
       .single();
 
     if (error) throw error;
-    return data;
+
+    const { data: memberships, error: membershipError } = await supabase
+      .from("venue_members")
+      .select(`
+        access_level,
+        venues (
+          id,
+          name
+        )
+      `)
+      .eq("profile_id", user.id)
+      .eq("active", true);
+
+    if (membershipError) {
+      profile.venue_memberships = [];
+      return profile;
+    }
+
+    profile.venue_memberships = (memberships || []).map(m => ({
+      access_level: m.access_level,
+      venue_id: m.venues?.id || null,
+      venue_name: m.venues?.name || "Unknown Venue"
+    }));
+
+    return profile;
   }
 
   return {

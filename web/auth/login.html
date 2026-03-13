@@ -37,7 +37,7 @@
         const data = Object.fromEntries(new FormData(form).entries());
         await LinkdNAuthLive.signIn(data);
         const profile = await LinkdNAuthLive.getProfile();
-        window.location.href = profile?.role === "moderator" ? "/moderator/dashboard.html" : "/profile/index.html";
+        window.location.href = profile?.role === "moderator" ? "/moderator/dashboard.html" : "/venue/dashboard.html";
       } catch (err) {
         statusEl.style.display = "block";
         statusEl.textContent = err.message || "Login failed.";

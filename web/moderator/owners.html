@@ -5,86 +5,100 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Owners & Staff - Linkd'N</title>
   <link rel="stylesheet" href="/common/app.css" />
-  <script src="/common/ui.js"></script>
-  <script src="/common/auth.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/common/config.js"></script>
+  <script src="/common/supabase.js"></script>
+  <script src="/common/auth-live.js"></script>
 </head>
 <body>
-  <div id="app"></div>
+  <div class="dashboard-shell">
+    <aside class="dashboard-sidebar">
+      <div class="sidebar-brand">Linkd'N Moderator</div>
+      <div class="sidebar-links">
+        <a class="sidebar-link" href="/moderator/dashboard.html">Dashboard</a>
+        <a class="sidebar-link" href="/moderator/venues.html">Venues</a>
+        <a class="sidebar-link" href="/moderator/owners.html">Owners & Staff</a>
+        <a class="sidebar-link" href="/moderator/metrics.html">Metrics</a>
+      </div>
+    </aside>
+    <main class="dashboard-main">
 
-  <script>
-    LinkdNAuth.requireRole(["moderator"]);
-
-    document.getElementById("app").innerHTML = LinkdNUI.dashboardShell("Owners & Staff", [
-      { href: "/moderator/dashboard.html", label: "Dashboard" },
-      { href: "/moderator/venues.html", label: "Venues" },
-      { href: "/moderator/owners.html", label: "Owners & Staff" },
-      { href: "/moderator/metrics.html", label: "Metrics" }
-    ]);
-
-    document.getElementById("page-content").innerHTML = `
+      <div class="dashboard-main-header"><h1>Owners & Staff</h1></div>
       <div class="card">
-        <h3>Add Owner / Staff</h3>
-        <form>
+        <h3>Create Owner or Staff Account</h3>
+        <form id="ownerForm">
           <div class="form-row">
-            <div>
-              <label>Name</label>
-              <input />
-            </div>
-            <div>
-              <label>Email</label>
-              <input type="email" />
-            </div>
+            <div><label>Display Name</label><input name="display_name" required /></div>
+            <div><label>Email</label><input type="email" name="email" required /></div>
           </div>
           <div class="form-row" style="margin-top:14px;">
-            <div>
-              <label>Role</label>
-              <select>
-                <option>venue_owner</option>
-                <option>venue_staff</option>
-                <option>moderator</option>
-              </select>
-            </div>
-            <div>
-              <label>Venue</label>
-              <input />
-            </div>
+            <div><label>Password</label><input type="password" name="password" required /></div>
+            <div><label>Role</label><select name="role"><option value="venue_owner">venue_owner</option><option value="venue_staff">venue_staff</option></select></div>
           </div>
-          <div class="form-actions">
-            <button type="button">Create User</button>
+          <div class="form-row" style="margin-top:14px;">
+            <div><label>Venue</label><select name="venue_id" id="venueSelect"></select></div>
+            <div><label>Access Level</label><select name="access_level"><option value="owner">owner</option><option value="manager">manager</option><option value="operator">operator</option></select></div>
           </div>
+          <div class="form-actions"><button type="submit">Create User</button></div>
         </form>
+        <p id="ownerStatus" class="notice" style="display:none;margin-top:14px;"></p>
       </div>
-
       <div class="table-wrap">
         <table>
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Email</th>
-              <th>Role</th>
-              <th>Venue</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>KC Owner</td>
-              <td>kc@example.com</td>
-              <td>venue_owner</td>
-              <td>Kansas City Venue</td>
-              <td>active</td>
-            </tr>
-            <tr>
-              <td>Miami Manager</td>
-              <td>miami.staff@example.com</td>
-              <td>venue_staff</td>
-              <td>Miami Club</td>
-              <td>active</td>
-            </tr>
-          </tbody>
+          <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Venue</th><th>Access</th></tr></thead>
+          <tbody id="ownerTableBody"></tbody>
         </table>
       </div>
-    `;
+    </main>
+  </div>
+  <script>
+    const form = document.getElementById("ownerForm");
+    const statusEl = document.getElementById("ownerStatus");
+    const venueSelect = document.getElementById("venueSelect");
+    const tableBody = document.getElementById("ownerTableBody");
+
+    function setStatus(msg, show=true) {
+      statusEl.style.display = show ? "block" : "none";
+      statusEl.textContent = msg || "";
+    }
+
+    async function loadVenues() {
+      const res = await LinkdNSupabase.apiFetch("/moderator/venues");
+      const venues = res.ok ? await res.json() : [];
+      venueSelect.innerHTML = venues.map(v => `<option value="${v.id}">${v.name}</option>`).join("");
+    }
+
+    async function loadOwners() {
+      const res = await LinkdNSupabase.apiFetch("/moderator/owners");
+      const rows = res.ok ? await res.json() : [];
+      tableBody.innerHTML = rows.map(r => `
+        <tr>
+          <td>${r.display_name || "-"}</td>
+          <td>${r.email || "-"}</td>
+          <td>${r.role}</td>
+          <td>${r.venue_name || "-"}</td>
+          <td>${r.access_level || "-"}</td>
+        </tr>
+      `).join("");
+    }
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const data = Object.fromEntries(new FormData(form).entries());
+      const res = await LinkdNSupabase.apiFetch("/moderator/owners", { method: "POST", body: JSON.stringify(data) });
+      if (!res.ok) return setStatus(await res.text() || "Failed to create user.");
+      form.reset();
+      setStatus("User created.");
+      loadOwners();
+    });
+
+    async function boot() {
+      const profile = await LinkdNAuthLive.requireRole(["moderator"]);
+      if (!profile) return;
+      await loadVenues();
+      await loadOwners();
+    }
+    boot();
   </script>
 </body>
 </html>

@@ -5,65 +5,86 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Venue Profile - Linkd'N</title>
   <link rel="stylesheet" href="/common/app.css" />
-  <script src="/common/ui.js"></script>
-  <script src="/common/auth.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/common/config.js"></script>
+  <script src="/common/supabase.js"></script>
+  <script src="/common/auth-live.js"></script>
 </head>
 <body>
-  <div id="app"></div>
 
+  <div class="page-wrap">
+    <div class="form-card" style="max-width:860px;">
+      <h2>Venue Profile</h2>
+      <p class="notice">Owners and staff can update venue details here.</p>
+      <form id="venueProfileForm">
+        <div>
+          <label>Select Venue</label>
+          <select id="venueMembershipSelect"></select>
+        </div>
+        <div class="form-row" style="margin-top:14px;">
+          <div><label>Venue Slug</label><input name="slug" required /></div>
+          <div><label>Venue Name</label><input name="name" required /></div>
+        </div>
+        <div class="form-row" style="margin-top:14px;">
+          <div><label>City</label><input name="city" /></div>
+          <div><label>Status</label><select name="active"><option value="true">active</option><option value="false">inactive</option></select></div>
+        </div>
+        <div class="form-actions"><button type="submit">Save Venue</button></div>
+      </form>
+      <p id="venueStatus" class="notice" style="display:none;margin-top:14px;"></p>
+    </div>
+  </div>
   <script>
-    LinkdNAuth.requireRole(["venue_owner", "venue_staff"]);
+    const form = document.getElementById("venueProfileForm");
+    const venueSelect = document.getElementById("venueMembershipSelect");
+    const statusEl = document.getElementById("venueStatus");
+    let venues = [];
 
-    document.getElementById("app").innerHTML = LinkdNUI.dashboardShell("Venue Profile", [
-      { href: "/venue/index.html", label: "Venue Home" },
-      { href: "/venue/profile.html", label: "Venue Profile" },
-      { href: "/venue/ready-check.html", label: "Ready Check" },
-      { href: "/venue/local-controls.html", label: "Local Controls" },
-      { href: "/venue/device-setup.html", label: "Device Setup" },
-      { href: "/venue/screen-settings.html", label: "Screen Settings" },
-      { href: "/venue/support.html", label: "Support" }
-    ]);
+    function setStatus(msg, show=true) {
+      statusEl.style.display = show ? "block" : "none";
+      statusEl.textContent = msg || "";
+    }
 
-    document.getElementById("page-content").innerHTML = `
-      <div class="card">
-        <h3>Venue Information</h3>
-        <form>
-          <div class="form-row">
-            <div>
-              <label>Venue Name</label>
-              <input value="Kansas City Venue" />
-            </div>
-            <div>
-              <label>City</label>
-              <input value="Kansas City" />
-            </div>
-          </div>
+    function loadIntoForm(id) {
+      const venue = venues.find(v => v.id === id);
+      if (!venue) return;
+      form.slug.value = venue.slug || "";
+      form.name.value = venue.name || "";
+      form.city.value = venue.city || "";
+      form.active.value = String(venue.active);
+    }
 
-          <div class="form-row" style="margin-top:14px;">
-            <div>
-              <label>Venue Status</label>
-              <select>
-                <option>active</option>
-                <option>inactive</option>
-              </select>
-            </div>
-            <div>
-              <label>Support Contact</label>
-              <input value="owner@venue.com" />
-            </div>
-          </div>
+    async function boot() {
+      const profile = await LinkdNAuthLive.requireRole(["venue_owner", "venue_staff", "moderator"]);
+      if (!profile) return;
+      const res = await LinkdNSupabase.apiFetch("/venue/my-venues");
+      if (!res.ok) return setStatus("Failed to load venues.");
+      venues = await res.json();
+      if (!venues.length) {
+        venueSelect.innerHTML = "<option>No venues</option>";
+        return setStatus("No venue memberships found.");
+      }
+      venueSelect.innerHTML = venues.map(v => `<option value="${v.id}">${v.name} (${v.access_level})</option>`).join("");
+      loadIntoForm(venues[0].id);
+    }
 
-          <div style="margin-top:14px;">
-            <label>Notes</label>
-            <textarea>Primary live room venue. Patron Pulse enabled.</textarea>
-          </div>
+    venueSelect.addEventListener("change", (e) => loadIntoForm(e.target.value));
 
-          <div class="form-actions">
-            <button type="button">Save Venue Profile</button>
-          </div>
-        </form>
-      </div>
-    `;
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const venueId = venueSelect.value;
+      const data = Object.fromEntries(new FormData(form).entries());
+      data.active = data.active === "true";
+      const res = await LinkdNSupabase.apiFetch(`/venue/profile/${venueId}`, {
+        method: "PUT",
+        body: JSON.stringify(data)
+      });
+      if (!res.ok) return setStatus(await res.text() || "Failed to save venue.");
+      setStatus("Venue profile saved.");
+      boot();
+    });
+
+    boot();
   </script>
 </body>
 </html>

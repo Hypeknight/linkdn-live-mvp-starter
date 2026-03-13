@@ -3,57 +3,46 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>System Metrics - Linkd'N</title>
+  <title>Metrics - Linkd'N</title>
   <link rel="stylesheet" href="/common/app.css" />
-  <script src="/common/ui.js"></script>
-  <script src="/common/auth.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/common/config.js"></script>
+  <script src="/common/supabase.js"></script>
+  <script src="/common/auth-live.js"></script>
 </head>
 <body>
-  <div id="app"></div>
+  <div class="dashboard-shell">
+    <aside class="dashboard-sidebar">
+      <div class="sidebar-brand">Linkd'N Moderator</div>
+      <div class="sidebar-links">
+        <a class="sidebar-link" href="/moderator/dashboard.html">Dashboard</a>
+        <a class="sidebar-link" href="/moderator/venues.html">Venues</a>
+        <a class="sidebar-link" href="/moderator/owners.html">Owners & Staff</a>
+        <a class="sidebar-link" href="/moderator/metrics.html">Metrics</a>
+      </div>
+    </aside>
+    <main class="dashboard-main">
 
+      <div class="dashboard-main-header"><h1>Metrics</h1></div>
+      <div class="metric-grid" id="metricGrid"></div>
+    </main>
+  </div>
   <script>
-    LinkdNAuth.requireRole(["moderator"]);
-
-    document.getElementById("app").innerHTML = LinkdNUI.dashboardShell("System Metrics", [
-      { href: "/moderator/dashboard.html", label: "Dashboard" },
-      { href: "/moderator/venues.html", label: "Venues" },
-      { href: "/moderator/owners.html", label: "Owners & Staff" },
-      { href: "/moderator/metrics.html", label: "Metrics" }
-    ]);
-
-    document.getElementById("page-content").innerHTML = `
-      <div class="metric-grid">
-        <div class="metric-card">
-          <h3>Total Venues</h3>
-          <div class="summary-value">6</div>
-        </div>
-        <div class="metric-card">
-          <h3>Active Rooms</h3>
-          <div class="summary-value">3</div>
-        </div>
-        <div class="metric-card">
-          <h3>Polls Tonight</h3>
-          <div class="summary-value">14</div>
-        </div>
-        <div class="metric-card">
-          <h3>Total Votes</h3>
-          <div class="summary-value">427</div>
-        </div>
-        <div class="metric-card">
-          <h3>Issues Reported</h3>
-          <div class="summary-value">5</div>
-        </div>
-        <div class="metric-card">
-          <h3>Most Selected Game</h3>
-          <div class="summary-value">City Battle</div>
-        </div>
-      </div>
-
-      <div class="card" style="margin-top:24px;">
-        <h3>Suggested next metrics</h3>
-        <p>Venue readiness rate, average poll turnout, top city visits, support response time, and venue reliability score.</p>
-      </div>
-    `;
+    async function boot() {
+      const profile = await LinkdNAuthLive.requireRole(["moderator"]);
+      if (!profile) return;
+      const [venuesRes, ownersRes] = await Promise.all([
+        LinkdNSupabase.apiFetch("/moderator/venues"),
+        LinkdNSupabase.apiFetch("/moderator/owners")
+      ]);
+      const venues = venuesRes.ok ? await venuesRes.json() : [];
+      const owners = ownersRes.ok ? await ownersRes.json() : [];
+      document.getElementById("metricGrid").innerHTML = `
+        <div class="metric-card"><h3>Total Venues</h3><div class="summary-value">${venues.length}</div></div>
+        <div class="metric-card"><h3>Owners / Staff</h3><div class="summary-value">${owners.length}</div></div>
+        <div class="metric-card"><h3>Active Venues</h3><div class="summary-value">${venues.filter(v => v.active).length}</div></div>`;
+    }
+    boot();
   </script>
 </body>
 </html>

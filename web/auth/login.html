@@ -5,40 +5,42 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Login - Linkd'N</title>
   <link rel="stylesheet" href="/common/app.css" />
-  <script src="/common/ui.js"></script>
-  <script src="/common/auth.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/common/config.js"></script>
+  <script src="/common/supabase.js"></script>
+  <script src="/common/auth-live.js"></script>
 </head>
 <body>
-  <div id="app"></div>
 
+  <div class="page-wrap">
+    <div class="form-card">
+      <h2>Login</h2>
+      <form id="loginForm">
+        <label>Email</label>
+        <input type="email" name="email" required />
+        <label style="margin-top:14px;">Password</label>
+        <input type="password" name="password" required />
+        <div class="form-actions"><button type="submit">Login</button></div>
+      </form>
+      <p id="status" class="notice" style="display:none;margin-top:14px;"></p>
+      <p style="margin-top:16px;"><a href="/auth/register.html">Create account</a></p>
+    </div>
+  </div>
   <script>
-    document.getElementById("app").innerHTML = `
-      ${LinkdNUI.layout("Login to Linkd'N")}
-      <div class="page-wrap">
-        <div class="form-card">
-          <h2>Login</h2>
-          <form id="loginForm">
-            <div style="margin-top:14px;">
-              <label>Email</label>
-              <input type="email" name="email" required />
-            </div>
-            <div style="margin-top:14px;">
-              <label>Password</label>
-              <input type="password" name="password" required />
-            </div>
-            <div class="form-actions">
-              <button type="submit">Login</button>
-            </div>
-          </form>
-        </div>
-      </div>
-    `;
-
-    document.getElementById("loginForm").addEventListener("submit", async (e) => {
+    const form = document.getElementById("loginForm");
+    const statusEl = document.getElementById("status");
+    form.addEventListener("submit", async (e) => {
       e.preventDefault();
-      const data = Object.fromEntries(new FormData(e.target).entries());
-      await LinkdNAuth.mockLogin(data);
-      window.location.href = "/profile/index.html";
+      statusEl.style.display = "none";
+      try {
+        const data = Object.fromEntries(new FormData(form).entries());
+        await LinkdNAuthLive.signIn(data);
+        const profile = await LinkdNAuthLive.getProfile();
+        window.location.href = profile?.role === "moderator" ? "/moderator/dashboard.html" : "/profile/index.html";
+      } catch (err) {
+        statusEl.style.display = "block";
+        statusEl.textContent = err.message || "Login failed.";
+      }
     });
   </script>
 </body>

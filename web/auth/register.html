@@ -5,62 +5,63 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Register - Linkd'N</title>
   <link rel="stylesheet" href="/common/app.css" />
-  <script src="/common/ui.js"></script>
-  <script src="/common/auth.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/common/config.js"></script>
+  <script src="/common/supabase.js"></script>
+  <script src="/common/auth-live.js"></script>
 </head>
 <body>
-  <div id="app"></div>
 
-  <script>
-    document.getElementById("app").innerHTML = `
-      ${LinkdNUI.layout("Create Your Linkd'N Account")}
-      <div class="page-wrap">
-        <div class="form-card">
-          <h2>Create Account</h2>
-          <form id="registerForm">
-            <div class="form-row">
-              <div>
-                <label>Display Name</label>
-                <input name="display_name" required />
-              </div>
-              <div>
-                <label>Email</label>
-                <input type="email" name="email" required />
-              </div>
-            </div>
-
-            <div class="form-row" style="margin-top:14px;">
-              <div>
-                <label>Password</label>
-                <input type="password" name="password" required />
-              </div>
-              <div>
-                <label>Role</label>
-                <select name="role" required>
-                  <option value="venue_owner">Venue Owner</option>
-                  <option value="venue_staff">Venue Staff</option>
-                </select>
-              </div>
-            </div>
-
-            <div style="margin-top:14px;">
-              <label>Venue Name</label>
-              <input name="venue_name" placeholder="Optional for now" />
-            </div>
-
-            <div class="form-actions">
-              <button type="submit">Register</button>
-            </div>
-          </form>
+  <div class="page-wrap">
+    <div class="form-card">
+      <h2>Create account</h2>
+      <form id="registerForm">
+        <div class="form-row">
+          <div>
+            <label>Display name</label>
+            <input name="display_name" required />
+          </div>
+          <div>
+            <label>Email</label>
+            <input type="email" name="email" required />
+          </div>
         </div>
-      </div>
-    `;
-
-    document.getElementById("registerForm").addEventListener("submit", async (e) => {
+        <div class="form-row" style="margin-top:14px;">
+          <div>
+            <label>Password</label>
+            <input type="password" name="password" required />
+          </div>
+          <div>
+            <label>Role</label>
+            <select name="role">
+              <option value="venue_owner">Venue Owner</option>
+              <option value="venue_staff">Venue Staff</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-actions"><button type="submit">Register</button></div>
+      </form>
+      <p id="status" class="notice" style="display:none;margin-top:14px;"></p>
+    </div>
+  </div>
+  <script>
+    const form = document.getElementById("registerForm");
+    const statusEl = document.getElementById("status");
+    form.addEventListener("submit", async (e) => {
       e.preventDefault();
-      const data = Object.fromEntries(new FormData(e.target).entries());
-      await LinkdNAuth.mockRegister(data);
-      window.location.href = "/profile/index.html";
+      statusEl.style.display = "none";
+      try {
+        const data = Object.fromEntries(new FormData(form).entries());
+        const result = await LinkdNAuthLive.signUp(data);
+        statusEl.style.display = "block";
+        statusEl.textContent = result.session
+          ? "Account created. Redirecting..."
+          : "Account created. If email confirmation is on, check email and then log in.";
+        if (result.session) setTimeout(() => location.href = "/profile/index.html", 900);
+      } catch (err) {
+        statusEl.style.display = "block";
+        statusEl.textContent = err.message || "Registration failed.";
+      }
     });
   </script>
 </body>

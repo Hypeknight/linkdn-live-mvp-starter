@@ -5,58 +5,52 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Moderator Dashboard - Linkd'N</title>
   <link rel="stylesheet" href="/common/app.css" />
-  <script src="/common/ui.js"></script>
-  <script src="/common/auth.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/common/config.js"></script>
+  <script src="/common/supabase.js"></script>
+  <script src="/common/auth-live.js"></script>
 </head>
 <body>
-  <div id="app"></div>
+  <div class="dashboard-shell">
+    <aside class="dashboard-sidebar">
+      <div class="sidebar-brand">Linkd'N Moderator</div>
+      <div class="sidebar-links">
+        <a class="sidebar-link" href="/moderator/dashboard.html">Dashboard</a>
+        <a class="sidebar-link" href="/moderator/venues.html">Venues</a>
+        <a class="sidebar-link" href="/moderator/owners.html">Owners & Staff</a>
+        <a class="sidebar-link" href="/moderator/metrics.html">Metrics</a>
+      </div>
+    </aside>
+    <main class="dashboard-main">
 
+      <div class="dashboard-main-header"><h1>Moderator Dashboard</h1></div>
+      <div class="metric-grid" id="stats"></div>
+      <div class="card" style="margin-top:24px;">
+        <h3>Platform status</h3>
+        <div id="statusBlock">Loading...</div>
+      </div>
+    </main>
+  </div>
   <script>
-    LinkdNAuth.requireRole(["moderator"]);
-
-    document.getElementById("app").innerHTML = LinkdNUI.dashboardShell("Moderator Dashboard", [
-      { href: "/moderator/dashboard.html", label: "Dashboard" },
-      { href: "/moderator/venues.html", label: "Venues" },
-      { href: "/moderator/owners.html", label: "Owners & Staff" },
-      { href: "/moderator/rooms.html", label: "Rooms" },
-      { href: "/moderator/schedules.html", label: "Schedules" },
-      { href: "/moderator/show-control.html", label: "Show Control" },
-      { href: "/moderator/venue-ops.html", label: "Venue Ops" },
-      { href: "/moderator/patron-pulse.html", label: "Patron Pulse" },
-      { href: "/moderator/metrics.html", label: "Metrics" }
-    ]);
-
-    document.getElementById("page-content").innerHTML = `
-      <div class="metric-grid">
-        <div class="metric-card">
-          <h3>Active Rooms</h3>
-          <div class="summary-value">3</div>
-        </div>
-        <div class="metric-card">
-          <h3>Active Venues</h3>
-          <div class="summary-value">6</div>
-        </div>
-        <div class="metric-card">
-          <h3>Live Polls</h3>
-          <div class="summary-value">1</div>
-        </div>
-      </div>
-
-      <div class="quick-grid" style="margin-top:24px;">
-        <div class="card">
-          <h3>Venue Alerts</h3>
-          <p>2 venues flagged for review</p>
-        </div>
-        <div class="card">
-          <h3>Tonight's Schedule</h3>
-          <p>3 rooms running active schedules</p>
-        </div>
-        <div class="card">
-          <h3>Patron Activity</h3>
-          <p>Live engagement and voting status overview</p>
-        </div>
-      </div>
-    `;
+    async function boot() {
+      const profile = await LinkdNAuthLive.requireRole(["moderator"]);
+      if (!profile) return;
+      const [venuesRes, ownersRes] = await Promise.all([
+        LinkdNSupabase.apiFetch("/moderator/venues"),
+        LinkdNSupabase.apiFetch("/moderator/owners")
+      ]);
+      const venues = venuesRes.ok ? await venuesRes.json() : [];
+      const owners = ownersRes.ok ? await ownersRes.json() : [];
+      document.getElementById("stats").innerHTML = `
+        <div class="metric-card"><h3>Venues</h3><div class="summary-value">${venues.length}</div></div>
+        <div class="metric-card"><h3>Owners / Staff</h3><div class="summary-value">${owners.length}</div></div>
+        <div class="metric-card"><h3>Moderator</h3><div class="summary-value">${profile.display_name || profile.email}</div></div>`;
+      document.getElementById("statusBlock").innerHTML = `
+        <div class="pill">Authenticated</div>
+        <div class="pill">Role: ${profile.role}</div>
+        <div class="pill">Live backend connected</div>`;
+    }
+    boot();
   </script>
 </body>
 </html>

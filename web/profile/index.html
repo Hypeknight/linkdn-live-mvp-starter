@@ -5,45 +5,52 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Profile - Linkd'N</title>
   <link rel="stylesheet" href="/common/app.css" />
-  <script src="/common/ui.js"></script>
-  <script src="/common/auth.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/common/config.js"></script>
+  <script src="/common/supabase.js"></script>
+  <script src="/common/auth-live.js"></script>
 </head>
 <body>
-  <div id="app"></div>
 
-  <script>
-    const session = LinkdNAuth.getSession();
-
-    document.getElementById("app").innerHTML = `
-      ${LinkdNUI.layout("Profile")}
-      <div class="page-wrap">
-        <div class="feature-grid">
-          <div class="feature-card">
-            <h3>Account</h3>
-            <p><strong>Name:</strong> ${session?.display_name || "Not logged in"}</p>
-            <p><strong>Email:</strong> ${session?.email || "-"}</p>
-            <p><strong>Role:</strong> ${session?.role || "-"}</p>
-          </div>
-          <div class="feature-card">
-            <h3>Venue</h3>
-            <p><strong>Venue Name:</strong> ${session?.venue_name || "Not assigned yet"}</p>
-          </div>
-          <div class="feature-card">
-            <h3>Actions</h3>
-            <div class="form-actions" style="flex-direction:column;">
-              <a href="/venue/index.html"><button type="button">Go to Venue Portal</button></a>
-              <a href="/moderator/dashboard.html"><button type="button">Go to Moderator Portal</button></a>
-              <button type="button" id="logoutBtn">Logout</button>
-            </div>
-          </div>
+  <div class="page-wrap">
+    <div class="feature-grid">
+      <div class="feature-card">
+        <h3>Account</h3>
+        <p><strong>Name:</strong> <span id="displayName">Loading...</span></p>
+        <p><strong>Email:</strong> <span id="email">-</span></p>
+        <p><strong>Role:</strong> <span id="role">-</span></p>
+      </div>
+      <div class="feature-card">
+        <h3>Venue memberships</h3>
+        <div id="memberships">Loading...</div>
+      </div>
+      <div class="feature-card">
+        <h3>Actions</h3>
+        <div class="form-actions" style="flex-direction:column;">
+          <a href="/venue/profile.html"><button type="button">Venue Profile</button></a>
+          <a href="/moderator/dashboard.html"><button type="button">Moderator Dashboard</button></a>
+          <button type="button" id="logoutBtn">Logout</button>
         </div>
       </div>
-    `;
-
-    document.getElementById("logoutBtn")?.addEventListener("click", () => {
-      LinkdNAuth.clearSession();
-      window.location.href = "/auth/login.html";
+    </div>
+  </div>
+  <script>
+    async function loadProfile() {
+      const profile = await LinkdNAuthLive.getProfile();
+      if (!profile) return location.href = "/auth/login.html";
+      document.getElementById("displayName").textContent = profile.display_name || "-";
+      document.getElementById("email").textContent = profile.email || "-";
+      document.getElementById("role").textContent = profile.role || "-";
+      const memberships = profile.venue_memberships || [];
+      document.getElementById("memberships").innerHTML = memberships.length
+        ? memberships.map(m => `<div class="pill">${m.venue_name} (${m.access_level})</div>`).join("")
+        : '<div class="notice">No memberships yet.</div>';
+    }
+    document.getElementById("logoutBtn").addEventListener("click", async () => {
+      await LinkdNAuthLive.signOut();
+      location.href = "/auth/login.html";
     });
+    loadProfile();
   </script>
 </body>
 </html>

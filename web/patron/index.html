@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <title>Patron Pulse</title>
+  <link rel="stylesheet" href="../common/app.css">
+</head>
+<body>
+  <header><div class="container"><h1>Patron Pulse</h1><div class="muted">Crowd voting page for live Linkd'N decisions.</div></div></header>
+  <div class="container">
+    <div class="panel">
+      <div class="hero">
+        <div>
+          <h2 id="roomTitle">Room: -</h2>
+          <div id="sessionLine" class="muted">Session: -</div>
+        </div>
+        <div id="statusPills"></div>
+      </div>
+    </div>
+
+    <div class="panel" id="pollPanel" style="display:none;">
+      <div id="pollType" class="pill"></div>
+      <h2 id="questionText">Question</h2>
+      <div id="countdownText" class="muted">Voting closes soon</div>
+      <div id="optionsWrap" class="list" style="margin-top:16px;"></div>
+      <div id="voteStatus" class="status-banner"></div>
+    </div>
+
+    <div class="panel" id="noPollPanel">
+      <h2>No Active Vote</h2>
+      <div class="muted">There is no open Patron Pulse vote in this room right now.</div>
+    </div>
+
+    <div class="panel" id="resultsPanel" style="display:none;">
+      <h2>Live Results</h2>
+      <div id="resultsWrap" class="list"></div>
+    </div>
+  </div>
+
+  <script src="../common/shared.js"></script>
+  <script src="../common/patron-pulse.js"></script>
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const roomId = params.get('room') || (window.LinkdNShared.loadState()?.activeRoomId) || 'central-battle-room';
+    const roomTitle = document.getElementById('roomTitle');
+    const sessionLine = document.getElementById('sessionLine');
+    const statusPills = document.getElementById('statusPills');
+    const pollPanel = document.getElementById('pollPanel');
+    const noPollPanel = document.getElementById('noPollPanel');
+    const resultsPanel = document.getElementById('resultsPanel');
+    const pollType = document.getElementById('pollType');
+    const questionText = document.getElementById('questionText');
+    const countdownText = document.getElementById('countdownText');
+    const optionsWrap = document.getElementById('optionsWrap');
+    const voteStatus = document.getElementById('voteStatus');
+    const resultsWrap = document.getElementById('resultsWrap');
+
+    roomTitle.textContent = `Room: ${roomId}`;
+    sessionLine.textContent = `Session: ${window.LinkdNShared.sessionId()}`;
+
+    function render(){
+      const poll = window.PatronPulse.getActivePoll(roomId);
+      if(!poll){
+        noPollPanel.style.display='';
+        pollPanel.style.display='none';
+        resultsPanel.style.display='none';
+        statusPills.innerHTML = '<span class="pill">No active poll</span>';
+        return;
+      }
+      noPollPanel.style.display='none';
+      pollPanel.style.display='';
+      resultsPanel.style.display='';
+      const remaining = Math.max(0, Math.ceil((poll.closesAt - Date.now()) / 1000));
+      statusPills.innerHTML = `<span class="pill">${poll.status}</span><span class="pill">${remaining}s</span>`;
+      pollType.textContent = poll.type.replaceAll('_',' ').toUpperCase();
+      questionText.textContent = poll.question;
+      countdownText.textContent = poll.status === 'open' ? `Voting closes in ${remaining}s` : `Voting is ${poll.status}`;
+      const myVote = window.PatronPulse.getVoteForCurrentSession(poll);
+      optionsWrap.innerHTML = poll.options.map(opt => `<button class="btn ${myVote===opt.id?'btn-primary':'primary'}" data-option="${opt.id}" ${poll.status !== 'open' || myVote ? 'disabled' : ''}>${opt.label}</button>`).join('');
+      voteStatus.textContent = myVote ? `You voted for: ${poll.options.find(o=>o.id===myVote)?.label || myVote}` : (poll.status === 'open' ? 'Tap one option to vote.' : 'Voting is closed.');
+      resultsWrap.innerHTML = poll.options.map(opt => `<div class="item"><strong>${opt.label}</strong><br>Votes: ${opt.votes}${poll.winnerOption===opt.id?'<br><span class="muted">Approved winner</span>':''}</div>`).join('');
+      document.querySelectorAll('[data-option]').forEach(btn=>btn.addEventListener('click',()=>{ try { window.PatronPulse.castVote(roomId, btn.dataset.option); render(); } catch(err){ voteStatus.textContent = err.message; } }));
+    }
+    window.addEventListener('storage', e => { if(e.key === window.LinkdNShared.STORAGE_KEY) render(); });
+    setInterval(render, 1000);
+    render();
+  </script>
+</body>
+</html>

@@ -1,23 +1,27 @@
 (function () {
   const cfg = window.LINKDN_CONFIG || {};
 
-  if (!cfg.SUPABASE_URL) {
-    console.error("Missing SUPABASE_URL in LINKDN_CONFIG");
-  }
-
-  if (!cfg.SUPABASE_ANON_KEY) {
-    console.error("Missing SUPABASE_ANON_KEY in LINKDN_CONFIG");
-  }
-
   if (!window.supabase) {
-    console.error("Supabase CDN library is not loaded.");
+    console.error("Supabase CDN library not loaded.");
     return;
   }
 
-  window.linkdnSupabase = window.supabase.createClient(
+  if (!cfg.SUPABASE_URL || !cfg.SUPABASE_ANON_KEY) {
+    console.error("Missing Supabase config values.");
+    return;
+  }
+
+  const client = window.supabase.createClient(
     cfg.SUPABASE_URL,
     cfg.SUPABASE_ANON_KEY
   );
 
-  console.log("Supabase client initialized");
+  window.LinkdNSupabase = {
+    client,
+    getClient() {
+      return client;
+    }
+  };
+
+  console.log("LinkdN Supabase initialized");
 })();

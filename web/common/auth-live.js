@@ -1,72 +1,81 @@
-(function () {
-  async function getSession() {
-    const { data, error } = await window.LinkdNSupabase.getClient().auth.getSession();
-    if (error) throw error;
-    return data.session || null;
-  }
-
-  async function getUser() {
-    const { data, error } = await window.LinkdNSupabase.getClient().auth.getUser();
-    if (error) throw error;
-    return data.user || null;
-  }
-
-  async function getProfile() {
-    const res = await window.LinkdNSupabase.apiFetch("/me/profile");
-    if (!res.ok) return null;
-    return await res.json();
-  }
-
-  async function signUp({ email, password, display_name, role }) {
-    const client = window.LinkdNSupabase.getClient();
-    const { data, error } = await client.auth.signUp({
-      email,
-      password,
-      options: { data: { display_name, role } }
-    });
-    if (error) throw error;
-    if (data.session) {
-      await window.LinkdNSupabase.apiFetch("/me/bootstrap-profile", {
-        method: "POST",
-        body: JSON.stringify({ display_name, role, email })
-      });
+window.LinkdNAuth = (() => {
+  function getSupabase() {
+    if (!window.LinkdNSupabase) {
+      throw new Error("LinkdNSupabase is not initialized.");
     }
+    return window.LinkdNSupabase.getClient();
+  }
+
+  async function signUp({ email, password, display_name, role = "venue_owner" }) {
+    const supabase = getSupabase();
+
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password
+    });
+
+    if (error) throw error;
+
+    const user = data.user;
+    if (!user) return data;
+
+    const { error: profileError } = await supabase.from("profiles").insert({
+      id: user.id,
+      role,
+      display_name,
+      email,
+      active: true
+    });
+
+    if (profileError) throw profileError;
+
     return data;
   }
 
   async function signIn({ email, password }) {
-    const client = window.LinkdNSupabase.getClient();
-    const { data, error } = await client.auth.signInWithPassword({ email, password });
-    if (error) throw error;
-    await window.LinkdNSupabase.apiFetch("/me/bootstrap-profile", {
-      method: "POST",
-      body: JSON.stringify({
-        display_name: data.user?.user_metadata?.display_name || email.split("@")[0],
-        role: data.user?.user_metadata?.role || "venue_owner",
-        email
-      })
+    const supabase = getSupabase();
+
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password
     });
+
+    if (error) throw error;
     return data;
   }
 
   async function signOut() {
-    const { error } = await window.LinkdNSupabase.getClient().auth.signOut();
+    const supabase = getSupabase();
+    return supabase.auth.signOut();
+  }
+
+  async function getUser() {
+    const supabase = getSupabase();
+    const { data, error } = await supabase.auth.getUser();
     if (error) throw error;
+    return data.user;
   }
 
-  async function requireRole(roles = []) {
-    const profile = await getProfile();
-    if (!profile) {
-      window.location.href = "/auth/login.html";
-      return null;
-    }
-    if (roles.length && !roles.includes(profile.role)) {
-      alert("You do not have access to this page.");
-      window.location.href = "/profile/index.html";
-      return null;
-    }
-    return profile;
+  async function getProfile() {
+    const supabase = getSupabase();
+    const user = await getUser();
+    if (!user) return null;
+
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", user.id)
+      .single();
+
+    if (error) throw error;
+    return data;
   }
 
-  window.LinkdNAuthLive = { getSession, getUser, getProfile, signUp, signIn, signOut, requireRole };
+  return {
+    signUp,
+    signIn,
+    signOut,
+    getUser,
+    getProfile
+  };
 })();
